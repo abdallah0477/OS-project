@@ -13,6 +13,13 @@
 #include "string.h"
 
 
+struct Process{
+    int id;
+    int priority; 
+    int arrival_time;
+    int running_time;
+};
+
 typedef short bool;
 #define true 1
 #define false 0

@@ -1,12 +1,7 @@
 #include "headers.h"
 
 void clearResources(int);
-struct Process{
-    int id;
-    int priority; 
-    int arrival_time;
-    int running_time;
-};
+
 int main(int argc, char *argv[])
 {
 
@@ -116,9 +111,11 @@ int main(int argc, char *argv[])
                processes[i].id, processes[i].arrival_time, 
                processes[i].running_time, processes[i].priority);
     }
+
+
+
     // 6. Send the information to the scheduler at the appropriate time.
     // 7. Clear clock resources
-    sleep(100);
     destroyClk(true);
 }
 
