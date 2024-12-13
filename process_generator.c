@@ -2,13 +2,42 @@
 
 void clearResources(int);
 
+struct msgbuff{
+    long mtype;
+    struct Process process;
+};
+
 pid_t clkpid,schedulerpid;
+key_t semclkid,semsendid,semrecid,ProcessQueueid,keyidshmid;
 
 struct Process *processes;
 
 int main(int argc, char *argv[])
 {
+    union Semun semun;
 
+    semclkid = ftok("process_generator",65);
+    semsendid = ftok("process_generator",66);
+    semrecid = ftok("process_generator",67);
+    ProcessQueueid = ftok("process_generator",68);
+    keyidshmid = ftok("process_generator",69);
+
+    int semclk = semget(semclkid,1, 0666 | IPC_CREAT);
+    int semsend = semget(semsendid,1, 0666 | IPC_CREAT);
+    int semrec = semget(semrecid,1, 0666 | IPC_CREAT);
+    int ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
+    if (ProcessQueue == -1) {
+    perror("msgget failed");
+    exit(1);
+}
+    int shmNumberProcess = shmget(keyidshmid,sizeof(int),0666 | IPC_CREAT);
+
+    semun.val = 0;
+
+    semctl(semclk, 0, SETVAL, semun);
+    semctl(semsend, 0, SETVAL, semun);
+    semctl(semrec, 0, SETVAL, semun);
+    int *shmaddr = (int *)shmat(shmNumberProcess, (void *)0, 0); 
 
     signal(SIGINT, clearResources);
     // TODO Initialization
@@ -33,7 +62,7 @@ int main(int argc, char *argv[])
         else {
             printf("Invalid scheduling algorithm number.\n");
         }
-    } 
+    }
 
 
     FILE *pfile;
@@ -41,15 +70,16 @@ int main(int argc, char *argv[])
 
     // 2. Read the chosen scheduling algorithm and its parameters, if there are any from the argument list.
    int N;
+  
    char buffer[256];
     if (fscanf(pfile, "%d", &N) != 1) {
         perror("Error reading file");
         fclose(pfile);
         return 1;
     }
-    
+    *shmaddr = N;
     int Scheduling_Algorithm = atoi(argv[3]);
-    int Quantum =0;
+    int Quantum = 1;
     if(Scheduling_Algorithm == 3 || Scheduling_Algorithm ==4){
         Quantum = atoi(argv[5]);
     }
@@ -63,25 +93,35 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (clkpid == 0) { // child process
-        
-        execl("./clk.out", "clk.out", (char *)NULL); 
-
-    } 
+    if (clkpid == 0) { 
+        if (execl("./clk.out", "clk.out", (char *)NULL) == -1) {
+            perror("Error executing clk.out"); 
+            exit(EXIT_FAILURE); 
+            
+        }
+    }
+    up(semclk);
     schedulerpid = fork();
+
     if (schedulerpid == -1) {
         perror("Fork failed");
         return 1;
     }
 
-    if (schedulerpid == 0) { // child process
+    if (schedulerpid == 0) { 
         
         execl("./scheduler.out", "scheduler.out", (char *)NULL); 
         perror("Error executing scheduler.out");
         return 1;
     } 
 
-    initClk();
+    while(1){
+        down(semclk);
+        initClk();
+        printf(" in Process Generator\n");
+        break;
+    }
+
     // 4. Use this function after creating the clock process to initialize clock.
     
     // To get time use this function. 
@@ -98,7 +138,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        // Parse the process data
+        // 
         struct Process p;
         if (sscanf(buffer, "%d %d %d %d", &p.id, &p.arrival_time, &p.running_time, &p.priority) == 4) {
             if (process_count < N) {
@@ -106,7 +146,8 @@ int main(int argc, char *argv[])
             }
         }
     }
-        fclose(pfile);
+    
+   int current_process = 0;
 
     // Print the processes to verify
     printf("Processes:\n");
@@ -115,21 +156,48 @@ int main(int argc, char *argv[])
                processes[i].id, processes[i].arrival_time, 
                processes[i].running_time, processes[i].priority);
     }
+while (current_process < N) {
+    int current_time = getClk();  // Get the current clock time
+    //printf("Current time is %d\n",current_time);
+    if (processes[current_process].arrival_time <= current_time) {
+        struct msgbuff processmsg;
+        processmsg.process = processes[current_process];
+        processmsg.mtype = 1;  // Message type
 
+        // Send the process to the message queue
+        if (msgsnd(ProcessQueue, &processmsg, sizeof(struct Process), IPC_NOWAIT) == -1) {
+            perror("Couldn't send process");
+            exit(1);
+        }
 
+        up(semsend);  // Signal that the process has been sent
+        down(semrec);  // Wait until the process has been acknowledged
+
+        current_process++;  
+
+        if (current_process >= N) break;  
+    }
+}
 
     // 6. Send the information to the scheduler at the appropriate time.
+
     // 7. Clear clock resources
-    destroyClk(true);
+    waitpid(schedulerpid,NULL,0);
+    fclose(pfile);
+    return 0;
 }
 
 void clearResources(int signum)
 {
-    kill(SIGTERM,clkpid);
-    kill(SIGTERM,schedulerpid);
+    kill(clkpid, SIGTERM);
+    kill(schedulerpid,SIGTERM);
 
     waitpid(clkpid, NULL, 0);
     waitpid(schedulerpid, NULL, 0);
+
+    shmctl(keyidshmid, IPC_RMID, NULL);
+
+
 
     if(processes != NULL){
         free(processes);
