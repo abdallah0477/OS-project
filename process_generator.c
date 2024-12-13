@@ -2,10 +2,14 @@
 
 void clearResources(int);
 
+pid_t clkpid,schedulerpid;
+
+struct Process *processes;
+
 int main(int argc, char *argv[])
 {
 
-    pid_t clkpid,schedulerpid;
+
     signal(SIGINT, clearResources);
     // TODO Initialization
     // 1. Read the input files.
@@ -86,7 +90,7 @@ int main(int argc, char *argv[])
     // TODO Generation Main Loop
     
     // 5. Create a data structure for processes and provide it with its parameters.
-    struct Process *processes = malloc(N * sizeof(struct Process));
+    processes = malloc(N * sizeof(struct Process));
     int process_count = 0;
     while (fgets(buffer, sizeof(buffer), pfile)) {
         // Skip lines that start with #
@@ -121,7 +125,16 @@ int main(int argc, char *argv[])
 
 void clearResources(int signum)
 {
-    //TODO Clears all resources in case of interruption
+    kill(SIGTERM,clkpid);
+    kill(SIGTERM,schedulerpid);
+
+    waitpid(clkpid, NULL, 0);
+    waitpid(schedulerpid, NULL, 0);
+
+    if(processes != NULL){
+        free(processes);
+    }
+    
     exit(0);
 
 }
