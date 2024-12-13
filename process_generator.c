@@ -10,12 +10,16 @@ struct msgbuff{
 pid_t clkpid,schedulerpid;
 key_t semclkid,semsendid,semrecid,ProcessQueueid,keyidshmid;
 
+
+
 struct Process *processes;
+
+
 
 int main(int argc, char *argv[])
 {
+    
     union Semun semun;
-
     semclkid = ftok("process_generator",65);
     semsendid = ftok("process_generator",66);
     semrecid = ftok("process_generator",67);
@@ -152,39 +156,56 @@ int main(int argc, char *argv[])
     // Print the processes to verify
     printf("Processes:\n");
     for (int i = 0; i < process_count; i++) {
-        printf("ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
-               processes[i].id, processes[i].arrival_time, 
+        printf("[%d]""ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
+               i,processes[i].id, processes[i].arrival_time, 
                processes[i].running_time, processes[i].priority);
     }
-while (current_process < N) {
-    int current_time = getClk();  // Get the current clock time
-    //printf("Current time is %d\n",current_time);
-    if (processes[current_process].arrival_time <= current_time) {
-        struct msgbuff processmsg;
-        processmsg.process = processes[current_process];
-        processmsg.mtype = 1;  // Message type
 
-        // Send the process to the message queue
-        if (msgsnd(ProcessQueue, &processmsg, sizeof(struct Process), IPC_NOWAIT) == -1) {
-            perror("Couldn't send process");
-            exit(1);
-        }
-
-        up(semsend);  // Signal that the process has been sent
-        down(semrec);  // Wait until the process has been acknowledged
-
-        current_process++;  
-
-        if (current_process >= N) break;  
+    struct msqid_ds queue_info;
+    msgctl(ProcessQueue, IPC_STAT, &queue_info);
+    if (queue_info.msg_qnum > 0) {
+        msgctl(ProcessQueue, IPC_RMID, NULL);
+        ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
     }
-}
+ // 6. Send the information to the scheduler at the appropriate time.
+     while (current_process < N) {
+        int current_time = getClk();
+        
+        if (processes[current_process].arrival_time <= current_time) {
+            struct msgbuff processmsg;
+            processmsg.mtype = 1;
+            processmsg.process = processes[current_process];
 
-    // 6. Send the information to the scheduler at the appropriate time.
+            
+            if (msgsnd(ProcessQueue, &processmsg, sizeof(struct Process), 0) == -1) {
+                perror("Message send failed");
+                exit(1);
+            }
+
+            printf("Process sent: ID: %d, Arrival: %d\n", 
+                   processes[current_process].id, 
+                   processes[current_process].arrival_time);
+
+            up(semsend);  
+            down(semrec); 
+            
+            current_process++;
+        }
+        
+        usleep(1000);
+    }
+
+   
 
     // 7. Clear clock resources
     waitpid(schedulerpid,NULL,0);
     fclose(pfile);
+    free(processes);
+    shmdt(&keyidshmid);
+    shmctl(keyidshmid, IPC_RMID, NULL);
+    destroyClk(true);
     return 0;
+
 }
 
 void clearResources(int signum)
@@ -195,9 +216,11 @@ void clearResources(int signum)
     waitpid(clkpid, NULL, 0);
     waitpid(schedulerpid, NULL, 0);
 
+    shmdt(&keyidshmid);
     shmctl(keyidshmid, IPC_RMID, NULL);
 
 
+    msgctl(ProcessQueueid, IPC_RMID, (struct msqid_ds *)0);
 
     if(processes != NULL){
         free(processes);

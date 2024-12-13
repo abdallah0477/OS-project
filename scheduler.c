@@ -37,30 +37,43 @@ int main(int argc, char *argv[])
     int N = *shmaddr;
     processes = malloc(N * sizeof(struct Process));
     int process_count = 0;
-    printf("in receiving loop\n");
-    while (1) {
-        if (process_count < N) {  
+
+    while (process_count < N) {
         down(semsend);  
+
+        struct msgbuff processmsg;
+        ssize_t received = msgrcv(ProcessQueue, &processmsg, N* sizeof(struct Process), 1, 0);
         
-            struct msgbuff processmsg;
-            processmsg.mtype = 1;  
+        if (received == -1) {
+            perror("Message receive failed");
+            exit(1);
+        }
 
-            
-            if (msgrcv(ProcessQueueid, &processmsg, sizeof(struct Process), 1, IPC_NOWAIT) == -1) {
-                perror("Could not receive message bitch");
-                exit(1);
-            }
-
-        struct Process receivedProcess = processmsg.process;
+        
+        processes[process_count] = processmsg.process;
+        
         printf("Received Process: ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
-            receivedProcess.id, receivedProcess.arrival_time, 
-            receivedProcess.running_time, receivedProcess.priority);
+               processes[process_count].id, 
+               processes[process_count].arrival_time,
+               processes[process_count].running_time,
+               processes[process_count].priority);
 
-        processes[process_count] = receivedProcess;
         process_count++;
-
         up(semrec);  
     }
-}
+    printf("Processes:\n");
+    for (int i = 0; i < process_count; i++) {
+        printf("[%d]""ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
+               i,processes[i].id, processes[i].arrival_time, 
+               processes[i].running_time, processes[i].priority);
+    }
+
+    
+    if (msgctl(ProcessQueue, IPC_RMID, NULL) == -1) {
+        perror("Failed to remove message queue");
+    }
+    
+    free(processes);
     destroyClk(true);
+    return 0;
 }

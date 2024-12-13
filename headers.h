@@ -11,7 +11,16 @@
 #include <unistd.h>
 #include <signal.h>
 #include "string.h"
+#include <errno.h>
 
+void removeSemaphores(key_t semid)
+{
+    if (semctl(semid, 0, IPC_RMID, NULL) == -1) {
+        perror("Error removing semaphore");
+    } else {
+        printf("Semaphore removed successfully.\n");
+    }
+}
 union Semun
 {
     int val;               /* Value for SETVAL */
