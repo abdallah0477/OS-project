@@ -12,6 +12,38 @@
 #include <signal.h>
 #include "string.h"
 #include <errno.h>
+#define MAX_SIZE 100
+
+struct PriQueue{
+    struct Process queue[MAX_SIZE];
+    int size;
+};
+
+void enqueue(struct PriQueue* pq,struct Process P){
+    if(pq->size >= MAX_SIZE){
+        printf("Full Queue\n");
+    }
+    int i;
+  for (i = pq->size - 1; i >= 0 && pq->queue[i].priority > P.priority; i--) {
+        pq->queue[i + 1] = pq->queue[i]; 
+    }
+    pq->queue[i+1] = P;
+    pq->size++; 
+}
+
+struct Process dequeue(struct PriQueue* pq){
+    if(pq->size==0){
+        printf("Queue Empty");
+    }
+    struct Process P = pq->queue[0];
+        for (int i = 1; i < pq->size; i++) {
+        pq->queue[i - 1] = pq->queue[i];
+    }
+
+    pq->size--;
+    return P;
+}
+
 
 void removeSemaphores(key_t semid)
 {
