@@ -4,7 +4,7 @@ struct msgbuff{
     long mtype;
     struct Process process;
 };
-
+#define ARRAY_SIZE 3
 struct Process *processes;
 int main(int argc, char *argv[])
 {
@@ -17,6 +17,8 @@ int main(int argc, char *argv[])
     key_t semrecid = ftok("process_generator",67);
     key_t ProcessQueueid = ftok("process_generator",68);
     key_t keyidshmid = ftok("process_generator",69);
+    
+
 
     int semsend = semget(semsendid,1, 0666 | IPC_CREAT);
     int semrec = semget(semrecid,1, 0666 | IPC_CREAT);
@@ -25,7 +27,8 @@ int main(int argc, char *argv[])
     perror("msgget failed");
     exit(1);
 }
-    int shmNumberProcess = shmget(keyidshmid,sizeof(int),0666 | IPC_CREAT);
+    int shmNumberProcess = shmget(keyidshmid,sizeof(int) * ARRAY_SIZE,0666 | IPC_CREAT);
+    
 
     semun.val = 0;
     
@@ -33,11 +36,21 @@ int main(int argc, char *argv[])
     semctl(semsend, 0, SETVAL, semun);
     semctl(semrec, 0, SETVAL, semun);
 
-    int *shmaddr = (int *)shmat(shmNumberProcess, (void *)0, 0);
-    int N = *shmaddr;
+    int *shmaddr = (int *)shmat(shmNumberProcess, (void *)0, 0); 
+    
+    int *info = malloc(sizeof(int) * ARRAY_SIZE);
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        info[i] = shmaddr[i];
+    }
+
+    int N = info[0];
+    int Scheduling_Algorithm = info[1];
+    int Quantum = info[2];
+    printf("Scheduler\nProcesses: %d Scheduling algorithm number: %d quantum: %d\n",N,Scheduling_Algorithm,Quantum);
     processes = malloc(N * sizeof(struct Process));
     int process_count = 0;
 
+    
     while (process_count < N) {
         down(semsend);  
 
@@ -73,7 +86,7 @@ int main(int argc, char *argv[])
         perror("Failed to remove message queue");
     }
     
-    free(processes);
-    destroyClk(true);
+    shmdt(shmaddr);
+    destroyClk(false);
     return 0;
 }

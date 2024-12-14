@@ -8,13 +8,15 @@ struct msgbuff{
 };
 
 pid_t clkpid,schedulerpid;
-key_t semclkid,semsendid,semrecid,ProcessQueueid,keyidshmid;
+key_t semclkid,semsendid,semrecid,ProcessQueueid,keyidshmid,keyidshmid2;
 
+int shmNumberProcess,semclk,semsend,semrec;
 
+#define ARRAY_SIZE 3
 
 struct Process *processes;
 
-
+int* shmaddrinfo;
 
 int main(int argc, char *argv[])
 {
@@ -26,22 +28,28 @@ int main(int argc, char *argv[])
     ProcessQueueid = ftok("process_generator",68);
     keyidshmid = ftok("process_generator",69);
 
-    int semclk = semget(semclkid,1, 0666 | IPC_CREAT);
-    int semsend = semget(semsendid,1, 0666 | IPC_CREAT);
-    int semrec = semget(semrecid,1, 0666 | IPC_CREAT);
+
+    semclk = semget(semclkid,1, 0666 | IPC_CREAT);
+    semsend = semget(semsendid,1, 0666 | IPC_CREAT);
+    semrec = semget(semrecid,1, 0666 | IPC_CREAT);
     int ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
     if (ProcessQueue == -1) {
     perror("msgget failed");
     exit(1);
 }
-    int shmNumberProcess = shmget(keyidshmid,sizeof(int),0666 | IPC_CREAT);
+    shmNumberProcess = shmget(keyidshmid,sizeof(int) * ARRAY_SIZE,0666 | IPC_CREAT);
+
 
     semun.val = 0;
 
     semctl(semclk, 0, SETVAL, semun);
     semctl(semsend, 0, SETVAL, semun);
     semctl(semrec, 0, SETVAL, semun);
-    int *shmaddr = (int *)shmat(shmNumberProcess, (void *)0, 0); 
+    shmaddrinfo = (int *)shmat(shmNumberProcess, (void *)0, 0); 
+    if (shmaddrinfo == (int *)-1) {
+        perror("shmat failed");
+        exit(1);
+    }
 
     signal(SIGINT, clearResources);
     // TODO Initialization
@@ -52,11 +60,14 @@ int main(int argc, char *argv[])
             printf("Shortest Job First Scheduling\n");
         } else if (strcmp(argv[3], "2") == 0) {
             printf("Highest Priority First Scheduling\n");
-        } else {
-            printf("Invalid scheduling algorithm number.\n");
-        }
+        } else if(strcmp(argv[3], "3") == 0) {
+            printf("Round Robin Scheduling With unspecified Quantum\nUsing Default Quantum\n");
+        } 
+        else if (strcmp(argv[3], "4") == 0) {
+            printf("Multilevel Feedback Queue Scheduling With With unspecified Quantum\nUsing Default Quantum\n");
+        } 
     } 
-    else if (argc == 5) {
+    else if (argc == 6) {
         if (strcmp(argv[3], "3") == 0) {
             printf("Round Robin Scheduling With Quantum = %s\n", argv[5]);
         } 
@@ -65,6 +76,7 @@ int main(int argc, char *argv[])
         } 
         else {
             printf("Invalid scheduling algorithm number.\n");
+            exit(1);
         }
     }
 
@@ -81,13 +93,21 @@ int main(int argc, char *argv[])
         fclose(pfile);
         return 1;
     }
-    *shmaddr = N;
+
     int Scheduling_Algorithm = atoi(argv[3]);
     int Quantum = 1;
     if(Scheduling_Algorithm == 3 || Scheduling_Algorithm ==4){
         Quantum = atoi(argv[5]);
     }
-    printf("Scheduling algorithm number %d, quantum = %d\n",Scheduling_Algorithm,Quantum);
+   int *info = malloc(sizeof(int) * ARRAY_SIZE);
+    info[0] =N;
+    info[1] = Scheduling_Algorithm;
+    info[2]= Quantum;
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        shmaddrinfo[i] = info[i];
+    }
+
+    printf("Pgen\nProcesses: %d Scheduling algorithm number: %d quantum: %d\n",N,Scheduling_Algorithm,Quantum);
 
     // 3. Initiate and create the scheduler and clock processes.
     clkpid = fork(); // 3amalt fork le clk proceess
@@ -198,11 +218,16 @@ int main(int argc, char *argv[])
    
 
     // 7. Clear clock resources
-    waitpid(schedulerpid,NULL,0);
+    
     fclose(pfile);
-    free(processes);
-    shmdt(&keyidshmid);
-    shmctl(keyidshmid, IPC_RMID, NULL);
+    waitpid(schedulerpid,NULL,0);
+    waitpid(clkpid,NULL,0);
+    shmdt(shmaddrinfo);  
+    shmctl(shmNumberProcess, IPC_RMID, NULL); 
+    msgctl(ProcessQueue, IPC_RMID, (struct msqid_ds *)0);
+    semctl(semsend,1,IPC_RMID);
+    semctl(semrec,1,IPC_RMID);
+    semctl(semclk,1,IPC_RMID);
     destroyClk(true);
     return 0;
 
@@ -213,19 +238,23 @@ void clearResources(int signum)
     kill(clkpid, SIGTERM);
     kill(schedulerpid,SIGTERM);
 
-    waitpid(clkpid, NULL, 0);
-    waitpid(schedulerpid, NULL, 0);
 
-    shmdt(&keyidshmid);
-    shmctl(keyidshmid, IPC_RMID, NULL);
 
+    shmdt(shmaddrinfo);  
+    shmctl(shmNumberProcess, IPC_RMID, NULL);
+
+    semctl(semsend,1,IPC_RMID);
+    semctl(semrec,1,IPC_RMID);
+    semctl(semclk,1,IPC_RMID);
 
     msgctl(ProcessQueueid, IPC_RMID, (struct msqid_ds *)0);
 
     if(processes != NULL){
         free(processes);
     }
-    
+    waitpid(clkpid, NULL, 0);
+    waitpid(schedulerpid, NULL, 0);
+    destroyClk(true);
     exit(0);
 
 }
