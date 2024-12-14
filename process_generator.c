@@ -10,7 +10,7 @@ struct msgbuff{
 pid_t clkpid,schedulerpid;
 key_t semclkid,semsendid,semrecid,ProcessQueueid,keyidshmid,keyidshmid2;
 
-int shmNumberProcess,semclk,semsend,semrec;
+int shmNumberProcess,semsend,semrec;
 
 #define ARRAY_SIZE 3
 
@@ -22,14 +22,13 @@ int main(int argc, char *argv[])
 {
     
     union Semun semun;
-    semclkid = ftok("process_generator",65);
     semsendid = ftok("process_generator",66);
     semrecid = ftok("process_generator",67);
     ProcessQueueid = ftok("process_generator",68);
     keyidshmid = ftok("process_generator",69);
 
 
-    semclk = semget(semclkid,1, 0666 | IPC_CREAT);
+    
     semsend = semget(semsendid,1, 0666 | IPC_CREAT);
     semrec = semget(semrecid,1, 0666 | IPC_CREAT);
     int ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
@@ -42,7 +41,6 @@ int main(int argc, char *argv[])
 
     semun.val = 0;
 
-    semctl(semclk, 0, SETVAL, semun);
     semctl(semsend, 0, SETVAL, semun);
     semctl(semrec, 0, SETVAL, semun);
     shmaddrinfo = (int *)shmat(shmNumberProcess, (void *)0, 0); 
@@ -124,7 +122,7 @@ int main(int argc, char *argv[])
             
         }
     }
-    up(semclk);
+
     schedulerpid = fork();
 
     if (schedulerpid == -1) {
@@ -139,12 +137,9 @@ int main(int argc, char *argv[])
         return 1;
     } 
 
-    while(1){
-        down(semclk);
-        initClk();
-        printf(" in Process Generator\n");
-        break;
-    }
+    initClk();
+    printf(" in Process Generator\n");
+    
 
     // 4. Use this function after creating the clock process to initialize clock.
     
@@ -227,7 +222,6 @@ int main(int argc, char *argv[])
     msgctl(ProcessQueue, IPC_RMID, (struct msqid_ds *)0);
     semctl(semsend,1,IPC_RMID);
     semctl(semrec,1,IPC_RMID);
-    semctl(semclk,1,IPC_RMID);
     destroyClk(true);
     return 0;
 
@@ -245,7 +239,7 @@ void clearResources(int signum)
 
     semctl(semsend,1,IPC_RMID);
     semctl(semrec,1,IPC_RMID);
-    semctl(semclk,1,IPC_RMID);
+    
 
     msgctl(ProcessQueueid, IPC_RMID, (struct msqid_ds *)0);
 
