@@ -14,35 +14,9 @@
 #include <errno.h>
 #define MAX_SIZE 100
 
-struct PriQueue{
-    struct Process queue[MAX_SIZE];
-    int size;
-};
 
-void enqueue(struct PriQueue* pq,struct Process P){
-    if(pq->size >= MAX_SIZE){
-        printf("Full Queue\n");
-    }
-    int i;
-  for (i = pq->size - 1; i >= 0 && pq->queue[i].priority > P.priority; i--) {
-        pq->queue[i + 1] = pq->queue[i]; 
-    }
-    pq->queue[i+1] = P;
-    pq->size++; 
-}
 
-struct Process dequeue(struct PriQueue* pq){
-    if(pq->size==0){
-        printf("Queue Empty");
-    }
-    struct Process P = pq->queue[0];
-        for (int i = 1; i < pq->size; i++) {
-        pq->queue[i - 1] = pq->queue[i];
-    }
 
-    pq->size--;
-    return P;
-}
 
 
 void removeSemaphores(key_t semid)
@@ -97,6 +71,54 @@ struct Process{
     int running_time;
 };
 
+struct msgbuff{
+    long mtype;
+    struct Process process;
+};
+
+struct PriQueue{
+    struct Process queue[MAX_SIZE];
+    int size;
+};
+
+void enqueue(struct PriQueue* pq,struct Process P){
+    if(pq->size >= MAX_SIZE){
+        printf("Full Queue\n");
+    }
+    int i;
+  for (i = pq->size - 1; i >= 0 && pq->queue[i].priority > P.priority; i--) {
+        pq->queue[i + 1] = pq->queue[i]; 
+    }
+    pq->queue[i+1] = P;
+    pq->size++; 
+}
+
+struct Process dequeue(struct PriQueue* pq){
+    if(pq->size==0){
+        printf("Queue Empty");
+    }
+    struct Process P = pq->queue[0];
+        for (int i = 1; i < pq->size; i++) {
+        pq->queue[i - 1] = pq->queue[i];
+    }
+
+    pq->size--;
+    return P;
+}
+
+void printPriQueue(struct PriQueue* pq ) {
+    if (pq->size == 0) {
+        printf("The queue is empty.\n");
+        return;
+    }
+
+    printf("Priority Queue Contents:\n");
+    for (int i = 0; i < pq->size; i++) {
+        printf("Process[%d]: ID: %d, Arrival Time: %d, Running Time: %d, Priority: %d\n",
+               i, pq->queue[i].id, pq->queue[i].arrival_time, 
+               pq->queue[i].running_time, pq->queue[i].priority);
+    }
+}
 
 
 typedef short bool;

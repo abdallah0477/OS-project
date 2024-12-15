@@ -2,10 +2,7 @@
 
 void clearResources(int);
 
-struct msgbuff{
-    long mtype;
-    struct Process process;
-};
+
 
 pid_t clkpid,schedulerpid;
 key_t semclkid,semsendid,semrecid,ProcessQueueid,keyidshmid,keyidshmid2;
@@ -169,12 +166,12 @@ int main(int argc, char *argv[])
    int current_process = 0;
 
     // Print the processes to verify
-    printf("Processes:\n");
-    for (int i = 0; i < process_count; i++) {
-        printf("[%d]""ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
-               i,processes[i].id, processes[i].arrival_time, 
-               processes[i].running_time, processes[i].priority);
-    }
+    // printf("Processes:\n");
+    // for (int i = 0; i < process_count; i++) {
+    //     printf("[%d]""ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
+    //            i,processes[i].id, processes[i].arrival_time, 
+    //            processes[i].running_time, processes[i].priority);
+    // }
 
     struct msqid_ds queue_info;
     msgctl(ProcessQueue, IPC_STAT, &queue_info);
@@ -197,9 +194,9 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            printf("Process sent: ID: %d, Arrival: %d\n", 
-                   processes[current_process].id, 
-                   processes[current_process].arrival_time);
+            // printf("Process sent: ID: %d, Arrival: %d\n", 
+            //        processes[current_process].id, 
+            //        processes[current_process].arrival_time);
 
             up(semsend);  
             down(semrec); 
@@ -207,7 +204,7 @@ int main(int argc, char *argv[])
             current_process++;
         }
         
-        usleep(1000);
+
     }
 
    

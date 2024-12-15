@@ -1,10 +1,7 @@
 #include "headers.h"
-
-struct msgbuff{
-    long mtype;
-    struct Process process;
-};
 #define ARRAY_SIZE 3
+
+
 struct Process *processes;
 int main(int argc, char *argv[])
 {
@@ -50,7 +47,9 @@ int main(int argc, char *argv[])
     processes = malloc(N * sizeof(struct Process));
     int process_count = 0;
 
-    
+    struct PriQueue pq= {.size =0};
+
+    if (Scheduling_Algorithm == 1){
     while (process_count < N) {
         down(semsend);  
 
@@ -62,24 +61,32 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        
-        processes[process_count] = processmsg.process;
-        
-        printf("Received Process: ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
-               processes[process_count].id, 
-               processes[process_count].arrival_time,
-               processes[process_count].running_time,
-               processes[process_count].priority);
+        enqueue(&pq,processmsg.process);
 
+        
+        
+        //processes[process_count] = processmsg.process;
+        //
+        // printf("Received Process: ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
+        //        processes[process_count].id, 
+        //        processes[process_count].arrival_time,
+        //        processes[process_count].running_time,
+        //        processes[process_count].priority);
+        //
         process_count++;
         up(semrec);  
+        }
     }
-    printf("Processes:\n");
-    for (int i = 0; i < process_count; i++) {
-        printf("[%d]""ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
-               i,processes[i].id, processes[i].arrival_time, 
-               processes[i].running_time, processes[i].priority);
-    }
+    printPriQueue(&pq);
+
+
+    // printf("Processes:\n");
+    // for (int i = 0; i < process_count; i++) {
+    //     printf("[%d]""ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
+    //            i,processes[i].id, processes[i].arrival_time, 
+    //            processes[i].running_time, processes[i].priority);
+    // }
+
 
     
     if (msgctl(ProcessQueue, IPC_RMID, NULL) == -1) {
