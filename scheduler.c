@@ -3,6 +3,7 @@
 
 //bahebak
 struct Process *processes;
+pid_t ProcessID;
 int main(int argc, char *argv[])
 {
     initClk();
@@ -14,6 +15,7 @@ int main(int argc, char *argv[])
     key_t semrecid = ftok("process_generator",67);
     key_t ProcessQueueid = ftok("process_generator",68);
     key_t keyidshmid = ftok("process_generator",69);
+    key_t runningtimeid = ftok("process_generator",100);
     
 
 
@@ -25,7 +27,8 @@ int main(int argc, char *argv[])
     exit(1);
 }
     int shmNumberProcess = shmget(keyidshmid,sizeof(int) * ARRAY_SIZE,0666 | IPC_CREAT);
-    
+    int runningtime = shmget(keyidshmid,sizeof(int),IPC_CREAT);
+
 
     semun.val = 0;
     
@@ -50,20 +53,29 @@ int main(int argc, char *argv[])
     struct PriQueue pq= {.size =0};
 
     if (Scheduling_Algorithm == 1){
+    
     while (process_count < N) {
         down(semsend);  
 
         struct msgbuff processmsg;
-        ssize_t received = msgrcv(ProcessQueue, &processmsg, N* sizeof(struct Process), 1, 0);
-        
-        if (received == -1) {
-            perror("Message receive failed");
+
+        ProcessID = fork();
+        if(ProcessID == -1){
+            perror("error in forking process");
+            exit(1);
+        }
+        if (ProcessID == 0){
+            execl("./process.out","process.out",(char *)NULL);
+            perror("Error running process.out");
             exit(1);
         }
 
-        enqueue(&pq,processmsg.process);
-
-        
+        while(true){
+            if(msgrcv(ProcessQueue, &processmsg, N* sizeof(struct Process), 1, IPC_NOWAIT) == -1)
+            break;
+            enqueue(&pq,processmsg.process);
+            printf("Schduler Received Process with pid %d",processmsg.process.id);
+        }
         
         //processes[process_count] = processmsg.process;
         //
@@ -77,7 +89,10 @@ int main(int argc, char *argv[])
         up(semrec);  
         }
     }
+    
     printPriQueue(&pq);
+
+
 
 
     // printf("Processes:\n");
