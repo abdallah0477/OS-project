@@ -118,3 +118,6 @@ void omar(int i){
 void omar2(int i){
     int x;
 }
+void omar3(int i){
+    int x;
+}
