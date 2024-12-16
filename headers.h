@@ -69,6 +69,11 @@ struct Process{
     int priority; 
     int arrival_time;
     int running_time;
+    int remaining_time;
+    int finish_time;
+    int turnaroundtime;
+    float wta;
+    int state;//ready,running,finished
 };
 
 struct msgbuff{
@@ -93,12 +98,12 @@ void enqueue(struct PriQueue* pq, struct Process P, int use_priority) {
 
     int i;
     if (use_priority) {
-        // Sort by priority (HPF)
+        // Sort by priority (HPF) priority=1
         for (i = pq->size - 1; i >= 0 && pq->queue[i].priority > P.priority; i--) {
             pq->queue[i + 1] = pq->queue[i];
         }
     } else {
-        // Sort by running time (SJF)
+        // Sort by running time (SJF) priority=0
         for (i = pq->size - 1; i >= 0 && pq->queue[i].running_time > P.running_time; i--) {
             pq->queue[i + 1] = pq->queue[i];
         }
