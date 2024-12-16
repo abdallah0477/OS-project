@@ -249,7 +249,7 @@ void SJF(int N, int ProcessQueue, struct PriQueue* pq) {
     int useful_CPU_time = total_run - total_wait;
     CPU_UT = useful_CPU_time/total_run;
     avg_WTA = total_wta/N;
-   fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.2f\n", 
+    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.2f\n", 
         CPU_UT, avg_WTA, avg_wait);
 
 }
