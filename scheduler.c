@@ -115,3 +115,6 @@ int main(int argc, char *argv[])
 void omar(int i){
     printf("xxxxxx");
 }
+void omar2(int i){
+    int x;
+}
