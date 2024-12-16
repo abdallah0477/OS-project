@@ -1,6 +1,6 @@
 #include "headers.h"
 #define ARRAY_SIZE 3
-
+//hi my name is omar
 //bahebak
 struct Process *processes;
 pid_t ProcessID;
