@@ -21,6 +21,7 @@ int total_run=0;
 FILE *out_log;
 FILE *out_perf;
 
+void SJF(int N,int MessageQueue,struct PriQueue *pq);
 struct Process *processes;
 pid_t ProcessID;
 int main(int argc, char *argv[])
@@ -40,16 +41,13 @@ int main(int argc, char *argv[])
 
     union Semun semun;
 
-    key_t semsendid = ftok("process_generator",66);
-    key_t semrecid = ftok("process_generator",67);
+
     key_t ProcessQueueid = ftok("process_generator",68);
     key_t keyidshmid = ftok("process_generator",69);
     key_t runningtimeid = ftok("process_generator",100);
     
 
 
-    int semsend = semget(semsendid,1, 0666 | IPC_CREAT);
-    int semrec = semget(semrecid,1, 0666 | IPC_CREAT);
     int ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
     if (ProcessQueue == -1) {
     perror("msgget failed");
@@ -61,9 +59,7 @@ int main(int argc, char *argv[])
 
     semun.val = 0;
     
-    
-    semctl(semsend, 0, SETVAL, semun);
-    semctl(semrec, 0, SETVAL, semun);
+
 
     int *shmaddr = (int *)shmat(shmNumberProcess, (void *)0, 0); 
     
@@ -82,41 +78,8 @@ int main(int argc, char *argv[])
     struct PriQueue pq= {.size =0};
 
     if (Scheduling_Algorithm == 1){
-    
-    while (process_count < N) {
-        down(semsend);  
-
-        struct msgbuff processmsg;
-
-        ProcessID = fork();
-        if(ProcessID == -1){
-            perror("error in forking process");
-            exit(1);
-        }
-        if (ProcessID == 0){
-            execl("./process.out","process.out",(char *)NULL);
-            perror("Error running process.out");
-            exit(1);
-        }
-
-        while(true){
-            if(msgrcv(ProcessQueue, &processmsg, N* sizeof(struct Process), 1, IPC_NOWAIT) == -1)
-            break;
-            enqueue(&pq,processmsg.process);
-            printf("Schduler Received Process with pid %d",processmsg.process.id);
-        }
-        
-        //processes[process_count] = processmsg.process;
-        //
-        // printf("Received Process: ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
-        //        processes[process_count].id, 
-        //        processes[process_count].arrival_time,
-        //        processes[process_count].running_time,
-        //        processes[process_count].priority);
-        //
-        process_count++;
-        up(semrec);  
-        }
+        SJF(N,ProcessQueue,&pq);
+        printf("im done\n");
     }
     
     printPriQueue(&pq);
@@ -156,15 +119,18 @@ void start(struct Process* process) {
 
     fprintf(out_log, "At time %d process %d started, arrival time %d total %d remain %d wait %d\n",
             getClk(), process->id, process->arrival_time, process->running_time,
-            process->remaining_time, waiting_time);
+            process->running_time, waiting_time);
+    printf("At time %d process %d started, arrival time %d total %d remain %d wait %d\n",
+            getClk(), process->id, process->arrival_time, process->running_time,
+            process->running_time, waiting_time);
     
     int Pid = fork();
     process->p_pid= Pid;
     if (process->p_pid == 0)
     { 
-        char Remaining_Time[10];
-        sprintf(Remaining_Time,"%d",process->remaining_time);//convert the remaining time into string to be sended to the created process
-        execl(p_path,"process.out",Remaining_Time,NULL);  
+        char Running_Time[10];
+        sprintf(Running_Time,"%d",process->running_time);//convert the remaining time into string to be sended to the created process
+        execl(p_path,"process.out",Running_Time,NULL);  
     }
 
 
@@ -214,3 +180,47 @@ void resume(struct Process process)
 
 }
 
+
+void SJF(int N,int ProcessQueue,struct PriQueue* pq){
+    int process_count = 0;
+    int remaining_time = 0;
+    struct Process curr;
+    curr.id=-1;
+    struct msgbuff processmsg;
+    while (process_count < N || !isEmpty(pq) || curr.state ==1) {
+        if(!isEmpty(pq) && curr.id == -1){
+            curr = dequeue(pq);
+            remaining_time = curr.running_time;
+        }
+        if(curr.state == 0 ){
+            curr.state = 1;
+            start(&curr);
+            sleep(1);
+            remaining_time--;
+        }
+        else{
+            sleep(1);
+            remaining_time --;
+        }   
+
+        if(remaining_time <= 0){
+            curr.state = 0;
+            finish(curr);
+            if(!isEmpty(pq)){
+            curr = dequeue(pq);
+            }
+            else{
+                curr.id =-1;
+                printf("currid = %d",curr.id);
+            }
+        }
+        while(true){
+            if(msgrcv(ProcessQueue, &processmsg, N* sizeof(struct Process), 1, IPC_NOWAIT) == -1)
+            break;
+            enqueue(pq,processmsg.process,0);
+            printf("Schduler Received Process with pid %d\n",processmsg.process.id);
+            process_count++;
+            printf("imhere\n");
+        }
+    }
+} 

@@ -7,7 +7,7 @@ void clearResources(int);
 pid_t clkpid,schedulerpid;
 key_t semclkid,semsendid,semrecid,ProcessQueueid,keyidshmid,keyidshmid2;
 
-int shmNumberProcess,semsend,semrec;
+int shmNumberProcess,semsend,semrec,ProcessQueue;
 
 #define ARRAY_SIZE 3
 
@@ -19,16 +19,16 @@ int main(int argc, char *argv[])
 {
     
     union Semun semun;
-    semsendid = ftok("process_generator",66);
-    semrecid = ftok("process_generator",67);
+   // semsendid = ftok("process_generator",66);
+    //semrecid = ftok("process_generator",67);
     ProcessQueueid = ftok("process_generator",68);
     keyidshmid = ftok("process_generator",69);
 
 
     
-    semsend = semget(semsendid,1, 0666 | IPC_CREAT);
-    semrec = semget(semrecid,1, 0666 | IPC_CREAT);
-    int ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
+    //semsend = semget(semsendid,1, 0666 | IPC_CREAT);
+    //semrec = semget(semrecid,1, 0666 | IPC_CREAT);
+    ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
     if (ProcessQueue == -1) {
     perror("msgget failed");
     exit(1);
@@ -36,10 +36,10 @@ int main(int argc, char *argv[])
     shmNumberProcess = shmget(keyidshmid,sizeof(int) * ARRAY_SIZE,0666 | IPC_CREAT);
 
 
-    semun.val = 0;
+    //semun.val = 0;
 
-    semctl(semsend, 0, SETVAL, semun);
-    semctl(semrec, 0, SETVAL, semun);
+    //semctl(semsend, 0, SETVAL, semun);
+    //semctl(semrec, 0, SETVAL, semun);
     shmaddrinfo = (int *)shmat(shmNumberProcess, (void *)0, 0); 
     if (shmaddrinfo == (int *)-1) {
         perror("shmat failed");
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     // 2. Read the chosen scheduling algorithm and its parameters, if there are any from the argument list.
    int N;
   
-   char buffer[256];
+   
     if (fscanf(pfile, "%d", &N) != 1) {
         perror("Error reading file");
         fclose(pfile);
@@ -148,6 +148,7 @@ int main(int argc, char *argv[])
     // 5. Create a data structure for processes and provide it with its parameters.
     processes = malloc(N * sizeof(struct Process));
     int process_count = 0;
+    char buffer[256];
     while (fgets(buffer, sizeof(buffer), pfile)) {
         // Skip lines that start with #
         if (buffer[0] == '#') {
@@ -198,8 +199,8 @@ int main(int argc, char *argv[])
             //        processes[current_process].id, 
             //        processes[current_process].arrival_time);
 
-            up(semsend);  
-            down(semrec); 
+           // up(semsend);  
+           // down(semrec); 
             
             current_process++;
         }
@@ -217,8 +218,8 @@ int main(int argc, char *argv[])
     shmdt(shmaddrinfo);  
     shmctl(shmNumberProcess, IPC_RMID, NULL); 
     msgctl(ProcessQueue, IPC_RMID, (struct msqid_ds *)0);
-    semctl(semsend,1,IPC_RMID);
-    semctl(semrec,1,IPC_RMID);
+   // semctl(semsend,1,IPC_RMID);
+    //semctl(semrec,1,IPC_RMID);
     destroyClk(true);
     return 0;
 
@@ -234,11 +235,11 @@ void clearResources(int signum)
     shmdt(shmaddrinfo);  
     shmctl(shmNumberProcess, IPC_RMID, NULL);
 
-    semctl(semsend,1,IPC_RMID);
-    semctl(semrec,1,IPC_RMID);
+    //semctl(semsend,1,IPC_RMID);
+    //semctl(semrec,1,IPC_RMID);
     
 
-    msgctl(ProcessQueueid, IPC_RMID, (struct msqid_ds *)0);
+    msgctl(ProcessQueue, IPC_RMID, (struct msqid_ds *)0);
 
     if(processes != NULL){
         free(processes);

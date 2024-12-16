@@ -118,7 +118,9 @@ void enqueue(struct PriQueue* pq, struct Process P, int use_priority) {
 struct Process dequeue(struct PriQueue* pq) {
     if (isEmpty(pq)) {
         printf("Queue Empty\n");
-        return ;
+        struct Process EmptyProcess;
+        EmptyProcess.id =-1;
+        return EmptyProcess;
     }
 
     struct Process P = pq->queue[0];
@@ -133,7 +135,9 @@ struct Process dequeue(struct PriQueue* pq) {
 struct Process peek(struct PriQueue* pq) {
     if (isEmpty(pq)) {
         printf("Queue Empty\n");
-        return;
+        struct Process EmptyProcess;
+        EmptyProcess.id =-1;
+        return EmptyProcess;
     }
 
     return pq->queue[0]; 
@@ -186,7 +190,7 @@ void initClk()
         shmid = shmget(SHKEY, 4, 0444);
     }
     shmaddr = (int *)shmat(shmid, (void *)0, 0);
-    printf("Clock Successfully initalized");
+    printf("Clock Successfully initalized\n");
 }
 
 /*
