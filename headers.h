@@ -76,29 +76,45 @@ struct msgbuff{
     struct Process process;
 };
 
-struct PriQueue{
+struct PriQueue {
     struct Process queue[MAX_SIZE];
     int size;
 };
 
-void enqueue(struct PriQueue* pq,struct Process P){
-    if(pq->size >= MAX_SIZE){
-        printf("Full Queue\n");
-    }
-    int i;
-  for (i = pq->size - 1; i >= 0 && pq->queue[i].priority > P.priority; i--) {
-        pq->queue[i + 1] = pq->queue[i]; 
-    }
-    pq->queue[i+1] = P;
-    pq->size++; 
+int isEmpty(struct PriQueue* pq) {
+    return pq->size == 0; 
 }
 
-struct Process dequeue(struct PriQueue* pq){
-    if(pq->size==0){
-        printf("Queue Empty");
+void enqueue(struct PriQueue* pq, struct Process P, int use_priority) {
+    if (pq->size >= MAX_SIZE) {
+        printf("Full Queue\n");
+        return; 
     }
+
+    int i;
+    if (use_priority) {
+        // Sort by priority (HPF)
+        for (i = pq->size - 1; i >= 0 && pq->queue[i].priority > P.priority; i--) {
+            pq->queue[i + 1] = pq->queue[i];
+        }
+    } else {
+        // Sort by running time (SJF)
+        for (i = pq->size - 1; i >= 0 && pq->queue[i].running_time > P.running_time; i--) {
+            pq->queue[i + 1] = pq->queue[i];
+        }
+    }
+    pq->queue[i + 1] = P;
+    pq->size++;
+}
+
+struct Process dequeue(struct PriQueue* pq) {
+    if (isEmpty(pq)) {
+        printf("Queue Empty\n");
+        return ;
+    }
+
     struct Process P = pq->queue[0];
-        for (int i = 1; i < pq->size; i++) {
+    for (int i = 1; i < pq->size; i++) {
         pq->queue[i - 1] = pq->queue[i];
     }
 
@@ -106,8 +122,19 @@ struct Process dequeue(struct PriQueue* pq){
     return P;
 }
 
-void printPriQueue(struct PriQueue* pq ) {
-    if (pq->size == 0) {
+struct Process peek(struct PriQueue* pq) {
+    if (isEmpty(pq)) {
+        printf("Queue Empty\n");
+        return;
+    }
+
+    return pq->queue[0]; 
+}
+
+
+
+void printPriQueue(struct PriQueue* pq) {
+    if (isEmpty(pq)) {
         printf("The queue is empty.\n");
         return;
     }
@@ -119,7 +146,6 @@ void printPriQueue(struct PriQueue* pq ) {
                pq->queue[i].running_time, pq->queue[i].priority);
     }
 }
-
 
 typedef short bool;
 #define true 1
