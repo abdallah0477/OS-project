@@ -18,7 +18,7 @@ int main(int agrc, char *argv[])
                 remainingtime--;
                 temp = getClk();
             }
-        printf("im here");
+        printf("im here\n");
     }
 
     destroyClk(false);

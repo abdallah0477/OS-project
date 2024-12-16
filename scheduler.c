@@ -16,6 +16,9 @@ char* p_path;// process path to be used in calling the file
 int total_wait=0;
 int total_wta=0;
 int total_run=0;
+float CPU_UT=0;
+float avg_WTA=0;
+float avg_wait=0;
 
 
 FILE *out_log;
@@ -101,8 +104,8 @@ int main(int argc, char *argv[])
     }
     
     shmdt(shmaddr);
-    destroyClk(false);
     return 0;
+    destroyClk(false);
 }
 
 
@@ -116,6 +119,7 @@ void start(struct Process* process) {
     }
      int waiting_time=getClk()-process->arrival_time;
      process->wait_time=waiting_time;
+    fprintf(out_perf,"WAITING TIME: %d\n",waiting_time);
 
     fprintf(out_log, "At time %d process %d started, arrival time %d total %d remain %d wait %d\n",
             getClk(), process->id, process->arrival_time, process->running_time,
@@ -180,47 +184,73 @@ void resume(struct Process process)
 
 }
 
-
-void SJF(int N,int ProcessQueue,struct PriQueue* pq){
+void SJF(int N, int ProcessQueue, struct PriQueue* pq) {
     int process_count = 0;
     int remaining_time = 0;
     struct Process curr;
-    curr.id=-1;
+    curr.id = -1; // Initialize to indicate no current process
     struct msgbuff processmsg;
-    while (process_count < N || !isEmpty(pq) || curr.state ==1) {
-        if(!isEmpty(pq) && curr.id == -1){
+
+    while (process_count <= N || !isEmpty(pq) || curr.state == 1) {
+        printPriQueue(pq);
+        if (!isEmpty(pq) && curr.id == -1) {
             curr = dequeue(pq);
             remaining_time = curr.running_time;
         }
-        if(curr.state == 0 ){
-            curr.state = 1;
+
+        
+        if (curr.state == 0 && curr.id != -1) {
+            curr.state = 1; 
             start(&curr);
             sleep(1);
             remaining_time--;
-        }
-        else{
+        } else if (curr.id != -1) {
             sleep(1);
-            remaining_time --;
-        }   
+            remaining_time--;
+        }
 
-        if(remaining_time <= 0){
+        
+        if (remaining_time == 0 && curr.id != -1) {
             curr.state = 0;
             finish(curr);
-            if(!isEmpty(pq)){
-            curr = dequeue(pq);
-            }
-            else{
-                curr.id =-1;
-                printf("currid = %d",curr.id);
+
+            
+            if (!isEmpty(pq)) {
+                curr = dequeue(pq);
+                remaining_time = curr.running_time;
+            } else {
+                curr.id = -1; 
+                printf("Scheduler idle, no current process\n");
             }
         }
-        while(true){
-            if(msgrcv(ProcessQueue, &processmsg, N* sizeof(struct Process), 1, IPC_NOWAIT) == -1)
-            break;
-            enqueue(pq,processmsg.process,0);
-            printf("Schduler Received Process with pid %d\n",processmsg.process.id);
+
+        // 
+        while (true) {
+            if (msgrcv(ProcessQueue, &processmsg, N * sizeof(struct Process), 1, IPC_NOWAIT) == -1) {
+                if (errno == ENOMSG) {
+                    break; 
+                } else {
+                    perror("msgrcv failed");
+                    exit(1);
+                }
+            }
+            enqueue(pq, processmsg.process, 0); 
+            printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
             process_count++;
-            printf("imhere\n");
+        }
+
+        
+        if (process_count >= N && isEmpty(pq) && curr.id == -1) {
+            break;
         }
     }
-} 
+    printf("waiting time: %d\n",total_wait);
+    avg_wait = total_wait/N;
+    int useful_CPU_time = total_run - total_wait;
+    CPU_UT = useful_CPU_time/total_run;
+    avg_WTA = total_wta/N;
+   fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.2f\n", 
+        CPU_UT, avg_WTA, avg_wait);
+
+}
+ 
