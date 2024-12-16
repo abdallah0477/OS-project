@@ -1,13 +1,42 @@
 #include "headers.h"
 #define ARRAY_SIZE 3
-//hi my name is omar
-//bahebak
+
+
+
+//===============functions managing pauses=================
+void start(struct Process* p);
+void finish(struct Process p);
+void resume(struct Process p);
+void Pause(struct Process p);
+//==========================================================
+
+char* p_path;// process path to be used in calling the file
+
+//variables for totals
+int total_wait=0;
+int total_wta=0;
+int total_run=0;
+
+
+FILE *out_log;
+FILE *out_perf;
+
 struct Process *processes;
 pid_t ProcessID;
 int main(int argc, char *argv[])
 {
     initClk();
     printf(" in Scheduler\n");
+
+
+    char processBuffer[500];
+    getcwd(processBuffer, sizeof(processBuffer));//putting the directory path into the buffer
+    p_path = strcat(processBuffer, "/process.out");
+
+    //initialize output files-------------
+    out_log=fopen("scheduler.log","w");
+    out_perf=fopen("scheduler.perf","w");
+    //------------------------------------
 
     union Semun semun;
 
@@ -112,15 +141,76 @@ int main(int argc, char *argv[])
     destroyClk(false);
     return 0;
 }
-void omar(int i){
-    printf("xxxxxx");
+
+
+
+
+
+// start function definition
+void start(struct Process* process) {
+    if(process->id <= -1) {
+        return;
+    }
+     int waiting_time=getClk()-process->arrival_time;
+     process->wait_time=waiting_time;
+
+    fprintf(out_log, "At time %d process %d started, arrival time %d total %d remain %d wait %d\n",
+            getClk(), process->id, process->arrival_time, process->running_time,
+            process->remaining_time, waiting_time);
+    
+    int Pid = fork();
+    process->p_pid= Pid;
+    if (process->p_pid == 0)
+    { 
+        char Remaining_Time[10];
+        sprintf(Remaining_Time,"%d",process->remaining_time);//convert the remaining time into string to be sended to the created process
+        execl(p_path,"process.out",Remaining_Time,NULL);  
+    }
+
+
 }
-void omar2(int i){
-    int x;
+
+//finish function definition
+void finish(struct Process process) {
+
+    int finishTime = getClk();
+    int TA = finishTime - process.arrival_time;
+    double WTA =(double) TA / process.running_time;
+
+    printf("At time %d process %d finished, arrived %d total %d remain 0 wait %d TA %d WTA %.2f\n",
+            finishTime, process.id, process.arrival_time, process.running_time, process.wait_time, TA, WTA);
+    fprintf(out_log, "At time %d process %d finished, arrived %d total %d remain 0 wait %d TA %d WTA %.2f\n",
+            finishTime, process.id, process.arrival_time, process.running_time, process.wait_time, TA, WTA);
+
+
+    total_wait+= process.wait_time;
+    total_wta+= WTA;
+    total_run += process.running_time;
+
+    kill(process.p_pid, SIGCONT);
+
+
 }
-void omar3(int i){
-    int x;
+
+//pause function definition
+void Pause(struct Process process)
+{
+    process.time_stopped=getClk();
+    fprintf(out_log, "At time %d process %d stopped arr %d total %d remain %d wait %d\n",
+    getClk(), process.id, process.arrival_time, process.running_time,process.remaining_time,process.wait_time);
+    printf("At time %d process %d stopped arr %d total %d remain %d wait %d\n",
+    getClk(), process.id, process.arrival_time, process.running_time,process.remaining_time,process.wait_time);
 }
-void noor(int n){
-    int g;
+
+//resume function definition
+void resume(struct Process process)
+{
+
+    process.wait_time += getClk()-process.time_stopped;
+    fprintf(out_log, "At time %d process %d resumed arr %d total %d remain %.2d wait %.2d\n",
+    getClk(), process.id, process.arrival_time, process.running_time,process.remaining_time,process.wait_time);
+    printf("At time %d process %d resumed arr %d total %d remain %.2d wait %.2d\n",
+    getClk(), process.id, process.arrival_time, process.running_time,process.remaining_time,process.wait_time);
+
 }
+

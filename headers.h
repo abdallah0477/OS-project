@@ -65,6 +65,7 @@ void up(int sem)
 }
  
 struct Process{
+    int p_pid;
     int id;
     int priority; 
     int arrival_time;
@@ -74,6 +75,8 @@ struct Process{
     int turnaroundtime;
     float wta;
     int state;//ready,running,finished
+    int wait_time;
+    int time_stopped;
 };
 
 struct msgbuff{
