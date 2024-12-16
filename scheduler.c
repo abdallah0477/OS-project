@@ -112,3 +112,6 @@ int main(int argc, char *argv[])
     destroyClk(false);
     return 0;
 }
+void omar(int i){
+    printf("xxxxxx");
+}
