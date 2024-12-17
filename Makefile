@@ -11,9 +11,5 @@ clean:
 all: clean build
 
 run:
-<<<<<<< HEAD
-	./process_generator.out process.txt -sch 4 -q 5
-=======
 	./process_generator.out process.txt -sch 2
->>>>>>> 2f3ec01 (hpf shaghal)
 	

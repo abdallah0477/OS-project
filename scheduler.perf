@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-CPU Utilization = 89%
-AVG WTA= 7.000000
-AVG Waiting Time= 28.00
-=======
 CPU Utilization = 93%
-AVG WTA= 6.000000
-AVG Waiting Time= 24.00
->>>>>>> 2f3ec01 (hpf shaghal)
+AVG WTA= 6.400000
+AVG Waiting Time= 24.80

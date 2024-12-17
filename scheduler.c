@@ -361,13 +361,7 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
             }
         }
     }
-
-<<<<<<< HEAD
-
-=======
-    printf("All processes have been scheduled and executed.\n");
-}
->>>>>>> 2f3ec01 (hpf shaghal)
+}    
 void multifeedback(int ProcessQueueid, int n, int q)
 {
     struct circularqueue mlfq[10];
