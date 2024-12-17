@@ -129,12 +129,12 @@ void start(struct Process *process)
     {
         return;
     }
-    int waiting_time = getClk() - process->arrival_time;
-    process->wait_time = waiting_time;
-
+     int waiting_time=getClk()-process->arrival_time;
+     process->wait_time=waiting_time;
+     process->remaining_time = process->running_time;
     fprintf(out_log, "At time %d process %d started, arrival time %d total %d remain %d wait %d\n",
             getClk(), process->id, process->arrival_time, process->running_time,
-            process->running_time, waiting_time);
+            process->remaining_time, waiting_time);
     printf("At time %d process %d started, arrival time %d total %d remain %d wait %d\n",
            getClk(), process->id, process->arrival_time, process->running_time,
            process->remaining_time, waiting_time);
@@ -352,10 +352,12 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
             }
             printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
             process_count++;
-        }
+        
+            }
+        
 
-        if (process_count >= N && isEmpty(pq) && curr.id == -1)
-        {
+        
+        if (process_count >= N && isEmpty(pq)) {
             break;
         }
     }
