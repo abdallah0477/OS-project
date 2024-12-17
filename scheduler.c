@@ -96,9 +96,9 @@ int main(int argc, char *argv[])
         multifeedback(ProcessQueue, N, Quantum);
     }
 
-    avg_wait = total_wait / N;
-    float CPU_UT = ((float)total_run / (getClk())) * 100;
-    avg_WTA = total_wta / N;
+    avg_wait = total_wait / (float)N;
+    float CPU_UT = ((float)total_run / (float)(getClk())) * 100.0;
+    avg_WTA = total_wta / (float)N;
     fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %f\nAVG Waiting Time= %.2f\n",
             CPU_UT, avg_WTA, avg_wait);
     printf("CPU Utilization = %.0f%%\nAVG WTA= %f\nAVG Waiting Time= %.2f\n",
@@ -125,6 +125,7 @@ int main(int argc, char *argv[])
 // start function definition
 void start(struct Process *process)
 {
+    process->run_before=1;
     if (process->id <= -1)
     {
         return;
@@ -363,6 +364,7 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
     }
 }
 
+
 void multifeedback(int ProcessQueueid, int n, int q)
 {
     struct circularqueue mlfq[10];
@@ -384,40 +386,37 @@ void multifeedback(int ProcessQueueid, int n, int q)
 
     printf("MLFQ Scheduler started with fixed quantum %d.\n", q);
 
-    int all_empty = 0;
 
-    while (process_count <= n || all_empty == 0 || current_process.state == 1)
+    while (process_count < n )
     {
+        if(process_count==n){
+            break;
+        }
 
         while (msgrcv(ProcessQueueid, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1)
         {
 
-            printf("process with id %d arrived\n", processmsg.process.id);
+            printf("process with id %d priority %d arrived\n", processmsg.process.id,processmsg.process.priority);
             enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
+            processmsg.process.state=0;
 
-            if (current_process.id == -1)
-            {
-                current_level = processmsg.process.priority;
-                current_process = dequeuecircular(&mlfq[current_level]);
-            }
-            else if (processmsg.process.priority < current_process.priority)
-            {
-                higher_process = 1;
-                higher_level = processmsg.process.priority;
-            }
         }
 
         clock_time = getClk();
 
        
-        // for (int i = 0; i < 10; i++)
-        // {
-        //     if (mlfq[i].size > 0)
-        //     {
-        //         all_empty = 0; // Check if all queues are empty
-        //         break;
-        //     }
-        // }
+        if (current_process.id == -1)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                if (!isEmptyCircular(&mlfq[i])) //badawar ala elprocess elhasha8alha
+                {
+                    current_process = dequeuecircular(&mlfq[i]);
+                    current_level = i;
+                    break;
+                }
+            }
+        }
 
         if (current_process.id != -1)
         {
@@ -440,32 +439,59 @@ void multifeedback(int ProcessQueueid, int n, int q)
                 else
                 {
                     current_process.remaining_time=current_process.running_time;
+                    current_process.state=1;
                     start(&current_process);
                    
                 }
 
             while (getClk() < end_time)
             { // Time the process will run
+                while (msgrcv(ProcessQueueid, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1)
+                {
+                    printf("Process with ID %d and priority %d arrived\n", processmsg.process.id, processmsg.process.priority);
+                    enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
 
+                    if (processmsg.process.priority < current_level)
+                    {
+                        higher_process = 1;
+                        higher_level = processmsg.process.priority;
+                    }
+                }
             }
 
             current_process.remaining_time -= exec_time;
             if (current_process.remaining_time > 0)
             {
                 Pause(&current_process);
-                enqueuecircular(&mlfq[current_level + 1], current_process);
+                if(current_level<9){
+                    enqueuecircular(&mlfq[current_level + 1], current_process);
+                }
+                else{
+                    enqueuecircular(&mlfq[current_process.priority], current_process);
+                }
+                current_process.id=-1;
             }
             else
             {
                 finish(&current_process);
                 process_count++;
+                current_process.state=2;
+                current_process.id=-1;
+            }
+
+           if(process_count==n){
+            break;
             }
 
             if (higher_process == 0 || higher_level == -1)
             {
                 while(isEmptyCircular(&mlfq[current_level])){
                     current_level++;
+                    if(current_level==10){
+                        current_level=0;
+                    }
                 }
+                printf("CURRENT LEVEL IS %d\n",current_level);
                 current_process = dequeuecircular(&mlfq[current_level]);
             }
             else
@@ -476,17 +502,13 @@ void multifeedback(int ProcessQueueid, int n, int q)
                 higher_process = 0;
             }
 
-            if (mlfq[current_level].size == 0)
-            {
-                current_level++;
-            }
-            if (mlfq[current_level].size == 0 && current_level == 9)
-            {
-                current_level = 0;
-            }
         }
+
     }
 }
+
+
+
 
 void RoundRobin(int ProcessQueue, int N, int Quantum)
 {
@@ -568,4 +590,5 @@ void RoundRobin(int ProcessQueue, int N, int Quantum)
             break;
         }
     }
+
 }

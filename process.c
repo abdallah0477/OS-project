@@ -21,7 +21,7 @@ int main(int agrc, char *argv[])
     }
     shmdt(shmaddr);
     destroyClk(false);
+    printf("Process exited\n");
     exit(0);
-
     return 0;
 }
