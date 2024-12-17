@@ -77,6 +77,7 @@ struct Process{
     int state;//ready,running,finished
     int wait_time;
     int time_stopped;
+    int run_before;
 };
 
 struct msgbuff{
@@ -117,8 +118,9 @@ void enqueue(struct PriQueue* pq, struct Process P, int use_priority) {
 
 struct Process dequeue(struct PriQueue* pq) {
     if (isEmpty(pq)) {
-        printf("Queue Empty\n");
-        struct Process EmptyProcess;
+        printf("Peek Empty qu");
+        printf("Dequeue Queue Empty\n");
+        struct Process EmptyProcess= {0};
         EmptyProcess.id =-1;
         return EmptyProcess;
     }
@@ -134,8 +136,7 @@ struct Process dequeue(struct PriQueue* pq) {
 
 struct Process peek(struct PriQueue* pq) {
     if (isEmpty(pq)) {
-        printf("Queue Empty\n");
-        struct Process EmptyProcess;
+        struct Process EmptyProcess = {0};
         EmptyProcess.id =-1;
         return EmptyProcess;
     }
@@ -158,6 +159,64 @@ void printPriQueue(struct PriQueue* pq) {
                pq->queue[i].running_time, pq->queue[i].priority);
     }
 }
+
+
+//circular queue implementation 
+struct circularqueue{
+    struct Process queuearray[MAX_SIZE];
+    int front;
+    int rear;
+    int size;
+
+};
+void initialq(struct circularqueue *cq){
+    cq->front=0;
+    cq->rear=-1;
+    cq->size=0;
+}
+void enqueuecircular(struct circularqueue *cq , struct Process p){
+    if((cq->size>=MAX_SIZE))
+    {
+        printf("Full Queue");
+        return;
+    }
+    cq->rear=(cq->rear +1)%MAX_SIZE;
+    cq->queuearray[cq->rear]=p;
+    cq->size++;
+}
+struct Process dequeuecircular(struct circularqueue *cq){
+    if (cq->size==0){
+        printf("Empty queue");
+        struct Process circularqueue = {0};
+        circularqueue.id = -1;
+        return circularqueue;
+    }
+    struct Process p=cq->queuearray[cq->front];
+    cq->front=(cq->front +1)%MAX_SIZE;
+    cq->size--;
+    return p;
+}
+
+void printCircularQueue(struct circularqueue *cq) {
+    if (cq->size == 0) {
+        printf("Circular queue is empty.\n");
+        return;
+    }
+
+    printf("Circular Queue contents:\n");
+    int index = cq->front;
+    for (int i = 0; i < cq->size; i++) {
+        struct Process p = cq->queuearray[index];
+        printf("Process ID: %d, Priority: %d, Remaining Time: %d, State: %d\n", 
+               p.id, p.priority, p.remaining_time, p.state);
+        index = (index + 1) % MAX_SIZE; 
+    }
+}
+
+int isEmptyCircular(struct circularqueue *cq) {
+    return cq->size == 0;
+}
+
 
 typedef short bool;
 #define true 1

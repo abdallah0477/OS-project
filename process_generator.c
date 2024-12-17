@@ -231,7 +231,7 @@ void clearResources(int signum)
     kill(schedulerpid,SIGTERM);
 
 
-
+    shmdt(shmaddr);
     shmdt(shmaddrinfo);  
     shmctl(shmNumberProcess, IPC_RMID, NULL);
 

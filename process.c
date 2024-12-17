@@ -18,10 +18,10 @@ int main(int agrc, char *argv[])
                 remainingtime--;
                 temp = getClk();
             }
-        printf("im here\n");
     }
-
+    shmdt(shmaddr);
     destroyClk(false);
+    exit(0);
 
     return 0;
 }

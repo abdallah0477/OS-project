@@ -20,11 +20,15 @@ float CPU_UT=0;
 float avg_WTA=0;
 float avg_wait=0;
 
-
+int still_sending =1;
 FILE *out_log;
 FILE *out_perf;
 
+void multifeedback(int MessageQueue, int n, int q);
 void SJF(int N,int MessageQueue,struct PriQueue *pq);
+void RoundRobin(int MessageQueue,int N,int Quantum);
+void hpf(int MessageQueue,int N,struct PriQueue *pq);
+
 struct Process *processes;
 pid_t ProcessID;
 int main(int argc, char *argv[])
@@ -82,9 +86,27 @@ int main(int argc, char *argv[])
 
     if (Scheduling_Algorithm == 1){
         SJF(N,ProcessQueue,&pq);
-        printf("im done\n");
+        
+    }
+    if(Scheduling_Algorithm== 2){
+        hpf(N,ProcessQueue,&pq);
+    }
+    if(Scheduling_Algorithm ==3){
+        printf("Starting RR\n");
+        RoundRobin(ProcessQueue,N,Quantum);
+        printf("i am done");
+    }
+    if(Scheduling_Algorithm ==4){
+        multifeedback(ProcessQueue,N,Quantum);
     }
     
+    avg_wait = total_wait/N;
+    float CPU_UT = ((float)total_run / (getClk())) * 100;
+    avg_WTA = total_wta/N;
+    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %f\nAVG Waiting Time= %.2f\n", 
+    CPU_UT, avg_WTA, avg_wait);
+    printf("CPU Utilization = %.0f%%\nAVG WTA= %f\nAVG Waiting Time= %.2f\n", 
+    CPU_UT, avg_WTA, avg_wait);
     printPriQueue(&pq);
 
 
@@ -119,14 +141,13 @@ void start(struct Process* process) {
     }
      int waiting_time=getClk()-process->arrival_time;
      process->wait_time=waiting_time;
-    fprintf(out_perf,"WAITING TIME: %d\n",waiting_time);
 
     fprintf(out_log, "At time %d process %d started, arrival time %d total %d remain %d wait %d\n",
             getClk(), process->id, process->arrival_time, process->running_time,
             process->running_time, waiting_time);
     printf("At time %d process %d started, arrival time %d total %d remain %d wait %d\n",
             getClk(), process->id, process->arrival_time, process->running_time,
-            process->running_time, waiting_time);
+            process->remaining_time, waiting_time);
     
     int Pid = fork();
     process->p_pid= Pid;
@@ -192,20 +213,18 @@ void SJF(int N, int ProcessQueue, struct PriQueue* pq) {
     struct msgbuff processmsg;
 
     while (process_count <= N || !isEmpty(pq) || curr.state == 1) {
-        printPriQueue(pq);
         if (!isEmpty(pq) && curr.id == -1) {
             curr = dequeue(pq);
             remaining_time = curr.running_time;
         }
 
         
-        if (curr.state == 0 && curr.id != -1) {
-            curr.state = 1; 
-            start(&curr);
-            sleep(1);
-            remaining_time--;
-        } else if (curr.id != -1) {
-            sleep(1);
+        if (curr.id != -1) {
+            if (curr.state == 0) { 
+                curr.state = 1; 
+                start(&curr);
+            }
+            sleep(1); 
             remaining_time--;
         }
 
@@ -244,13 +263,276 @@ void SJF(int N, int ProcessQueue, struct PriQueue* pq) {
             break;
         }
     }
-    printf("waiting time: %d\n",total_wait);
-    avg_wait = total_wait/N;
-    int useful_CPU_time = total_run - total_wait;
-    CPU_UT = useful_CPU_time/total_run;
-    avg_WTA = total_wta/N;
-    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.2f\n", 
-        CPU_UT, avg_WTA, avg_wait);
 
 }
- 
+
+void hpf(int N, int ProcessQueue, struct PriQueue* pq) {
+    int process_count = 0;
+    int remaining_time = 0;
+    struct Process curr;
+    curr.id = -1; // Initialize to indicate no current process
+    struct msgbuff processmsg;
+
+    while (process_count <= N || !isEmpty(pq) || curr.state == 1) {
+        if (!isEmpty(pq) && curr.id == -1) {
+            curr = dequeue(pq);
+            remaining_time = curr.running_time;
+        }
+
+        
+        if (curr.id != -1) {
+            if (curr.state == 0) { 
+                curr.state = 1; 
+                start(&curr);
+            }
+            if (curr.state ==2){ //paused
+                curr.state =1;
+                resume(curr);
+            }
+            sleep(1); 
+            remaining_time--;
+            printf("Decrementing\n\n\n\n");
+        }
+
+        
+            struct Process temp = {0};
+            temp.state =-1;
+            if(processmsg.process.id>0){
+            enqueue(pq, processmsg.process, 1);} 
+            temp = peek(pq);
+            if (!isEmpty(pq)) {
+                struct Process temp = peek(pq);
+                if (temp.priority < curr.priority) { // Lower value = higher priority
+                    printf("Preempting process %d for process %d\n", curr.id, temp.id);
+                    curr.state = 2;
+                    Pause(curr);
+                    enqueue(pq, curr, 1);
+
+                    curr = dequeue(pq);
+                    curr.state = 1;
+                    remaining_time = curr.running_time;
+                }
+            }
+                        
+
+        
+        if (remaining_time == 0 && curr.id != -1) {
+            curr.state = 0;
+            printf("Process with id %d finishied",curr.id);
+            finish(curr);
+
+
+            
+            if (!isEmpty(pq)) {
+                curr = dequeue(pq);
+                remaining_time = curr.running_time;
+            } else {
+                curr.id = -1; 
+                printf("Scheduler idle, no current process\n");
+            }
+        }
+
+        // 
+        while (true) {
+            if (msgrcv(ProcessQueue, &processmsg, N * sizeof(struct Process), 1, IPC_NOWAIT) == -1) {
+                if (errno == ENOMSG) {
+                    break; 
+                } else {
+                    perror("msgrcv failed");
+                    exit(1);
+                }
+            }
+            printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
+            process_count++;
+        
+            }
+        
+
+        
+        if (process_count >= N && isEmpty(pq) && curr.id == -1) {
+            break;
+        }
+    }
+
+}
+
+
+
+void multifeedback(int ProcessQueueid, int n, int q)
+{
+    struct circularqueue mlfq[10];
+    for (int i = 0; i < 10; i++)
+    { // binitialise all queues
+        initialq(&mlfq[i]);
+    }
+
+    int clock_time = 0;
+    struct msgbuff processmsg;
+    struct Process current_process = {.id = -1};
+    int current_level = -1;
+    int process_count = 0;
+    int higher_process = 0;
+
+    int ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
+    if (ProcessQueue == -1)
+    {
+        perror("Error initializing ProcessQueue");
+        exit(1);
+    }
+
+    printf("MLFQ Scheduler started with fixed quantum %d.\n", q);
+
+    while (process_count < n)
+    {
+        clock_time = getClk();
+
+        while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1 || still_sending == 1)
+        {
+            struct Process new_process = processmsg.process;
+            enqueuecircular(&mlfq[new_process.priority], new_process);
+        }
+
+        // badawar ala awel proccess ha2dar a3melha execute
+        if (current_process.id == -1)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                if (mlfq[i].size > 0)
+                {
+                    current_process = dequeuecircular(&mlfq[i]);
+                    current_level = i;
+                    break;
+                }
+            }
+        }
+
+        if (current_process.id != -1)
+        {
+            int exec_time = 0;
+            if (current_process.remaining_time < q)
+            {
+                exec_time = current_process.remaining_time;
+            }
+            else
+            {
+                exec_time = q;
+            }
+
+            int end_time = clock_time + exec_time;
+
+            while (getClk() < end_time)
+            { // elwa2t elprocess hato3od trun feeh
+                if (current_process.run_before == 1)
+                {
+                    resume(current_process);
+                }
+                else
+                {
+                    start(&current_process);
+                }
+                enqueuecircular(&mlfq[current_level + 1], current_process);
+
+                // Check for new processes during execution
+                while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1)
+                {
+                    struct Process new_process = processmsg.process;
+                    enqueuecircular(&mlfq[new_process.priority], new_process); // law la2eit process gedeed wana sha8al bahotaha gowa elqueue beta3ha
+
+                    if (new_process.priority < current_level)
+                    {
+                        higher_process = 1;
+                        current_level = new_process.priority;
+                    }
+                }
+            }
+            current_process.remaining_time -= exec_time;
+            if (current_process.remaining_time > 0)
+            {
+                Pause(current_process);
+            }
+            else
+            {
+                finish(current_process);
+                process_count++;
+            }
+
+            if (&mlfq[current_level].size == 0)
+            {
+                current_level++;
+            }
+            if (&mlfq[current_level].size == 0 && current_level == 9)
+            {
+                current_level = 0;
+            }
+        }
+    }
+}
+
+
+void RoundRobin(int ProcessQueue,int N,int Quantum){
+        struct circularqueue readyprocesses;
+        int process_count;
+        struct Process p;
+        initialq(&readyprocesses);
+        //signal(SIGUSR1, process_finished_handler);
+        int executiontime;
+        struct msgbuff processmsg;
+        int timeslot=getClk();
+        if(Quantum<=0){
+            Quantum=1;
+        }
+     while (true) {
+    
+    while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
+        if (processmsg.process.id != -1) { 
+            enqueuecircular(&readyprocesses, processmsg.process);
+            process_count++;
+        }
+    }
+
+    
+    if (!still_sending && isEmptyCircular(&readyprocesses)) {
+        return;
+    }
+
+    // Process a ready process from the queue
+    if (!isEmptyCircular(&readyprocesses)) {
+        struct Process p = dequeuecircular(&readyprocesses);
+
+        // If process is not yet run
+        if (!p.run_before) {
+            p.run_before = true;
+            start(&p);
+            p.remaining_time=p.running_time;
+        } else {
+            resume(p); 
+        }
+
+        
+        if (p.remaining_time > Quantum) {
+            executiontime = Quantum;
+        } else {
+            executiontime = p.remaining_time; // Finish the process
+        }
+
+        int end = getClk() + executiontime;
+        while (getClk() < end) {
+            sleep(1);
+        }
+
+        
+        p.remaining_time -= executiontime;
+        if (p.remaining_time > 0) {
+            Pause(p); 
+            enqueuecircular(&readyprocesses, p);
+        } else {
+            finish(p); 
+        }
+    }
+    
+    if(process_count == N  && isEmptyCircular(&readyprocesses)){
+        break;
+    }
+    } 
+     
+}
