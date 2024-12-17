@@ -262,109 +262,112 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
     }
 }
 
-void hpf(int N, int ProcessQueue, struct PriQueue *pq)
+void hpf(int N, int ProcessQueue, struct PriQueue *pq) 
 {
+    //started, resumed, stopped, finished.
+    //state=0 ready state=1 started state=2 resumed state=3 stopped state=4 finished 
     int process_count = 0;
-    int remaining_time = 0;
+    //int remaining_time = 0;
     struct Process curr;
     curr.id = -1; // Initialize to indicate no current process
+    curr.run_before = 0; // Flag to track if the process has run before
     struct msgbuff processmsg;
 
-    while (process_count <= N || !isEmpty(pq) || curr.state == 1)
+    while (process_count < N || !isEmpty(pq) || curr.id != -1)
     {
+        // Check if there's no current process and the queue is not empty
         if (!isEmpty(pq) && curr.id == -1)
         {
             curr = dequeue(pq);
-            remaining_time = curr.running_time;
+            //remaining_time = curr.running_time;
+            //if(curr.running_time==0){
+            //    remaining_time=1;
+            //}
         }
 
+        // Manage the current process if it's valid
         if (curr.id != -1)
-        {
-            if (curr.state == 0)
+        { 
+            if (curr.run_before == 0)
             {
-                curr.state = 1;
+                curr.state = 1; //Set state to started
+                curr.run_before = 1;
                 start(&curr);
+                
             }
-            if (curr.state == 2)
-            { // paused
-                curr.state = 1;
+            else if (curr.state == 3) //if paused, resume the process
+            {
+                curr.state = 2; // Set state to running
                 resume(&curr);
             }
-            sleep(1);
-            remaining_time--;
-            printf("Decrementing\n\n\n\n");
-        }
 
-        struct Process temp = {0};
-        temp.state = -1;
-        if (processmsg.process.id > 0)
-        {
-            enqueue(pq, processmsg.process, 1);
-        }
-        temp = peek(pq);
-        if (!isEmpty(pq))
-        {
-            struct Process temp = peek(pq);
-            if (temp.priority < curr.priority)
-            { // Lower value = higher priority
-                printf("Preempting process %d for process %d\n", curr.id, temp.id);
-                curr.state = 2;
-                Pause(&curr);
-                enqueue(pq, curr, 1);
+            sleep(1); // Simulate one time unit of execution
+            curr.remaining_time--;
 
-                curr = dequeue(pq);
-                curr.state = 1;
-                remaining_time = curr.running_time;
-            }
-        }
-
-        if (remaining_time == 0 && curr.id != -1)
-        {
-            curr.state = 0;
-            printf("Process with id %d finishied", curr.id);
-            finish(&curr);
-
-            if (!isEmpty(pq))
+            // Check if the process has finished execution
+            if (curr.remaining_time == 0)
             {
-                curr = dequeue(pq);
-                remaining_time = curr.running_time;
-            }
-            else
-            {
-                curr.id = -1;
-                printf("Scheduler idle, no current process\n");
+                printf("Process with id %d finished\n", curr.id);
+                finish(&curr);
+                curr.state=4; //finished
+                curr.id = -1; // Reset current process
+
+                if (!isEmpty(pq))
+                {
+                    curr = dequeue(pq);
+                    //remaining_time = curr.running_time;
+                }
+                else
+                {
+                    printf("Scheduler idle, no current process\n");
+                }
             }
         }
 
-        //
+        // Receive new processes from the message queue
         while (true)
         {
             if (msgrcv(ProcessQueue, &processmsg, N * sizeof(struct Process), 1, IPC_NOWAIT) == -1)
             {
                 if (errno == ENOMSG)
                 {
-                    break;
+                    break; // No new messages, exit the loop
                 }
                 else
                 {
                     perror("msgrcv failed");
-                    exit(1);
+                    exit(1); // Exit on unexpected error
                 }
             }
-            printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
-            process_count++;
-        
-            }
-        
 
-        
-        if (process_count >= N && isEmpty(pq)) {
-            break;
+            printf("Scheduler received process with id %d\n", processmsg.process.id);
+            enqueue(pq, processmsg.process, 1); // Add the new process to the queue
+            process_count++;
+        }
+
+        // Check for preemption
+        if (!isEmpty(pq) && curr.id!=-1)
+        {//state=0 ready state=1 started state=2 resumed state=3 stopped(paused) state=4 finished 
+            struct Process temp = peek(pq); // Peek the next process in the queue
+            if (temp.priority < curr.priority) // Higher priority detected
+            {
+                printf("Preempting process %d for process %d\n", curr.id, temp.id);
+                curr.state = 3; // Pause the current process
+                Pause(&curr);
+                enqueue(pq, curr, 1); // Re-add the paused process to the queue
+
+                curr = dequeue(pq); // Switch to the higher-priority process
+                //remaining_time = curr.running_time;
+            }
         }
     }
+
+<<<<<<< HEAD
+
+=======
+    printf("All processes have been scheduled and executed.\n");
 }
-
-
+>>>>>>> 2f3ec01 (hpf shaghal)
 void multifeedback(int ProcessQueueid, int n, int q)
 {
     struct circularqueue mlfq[10];

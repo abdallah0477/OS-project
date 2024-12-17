@@ -5,7 +5,7 @@ int remainingtime;
 
 int main(int agrc, char *argv[])
 {
-    initClk();
+    //initClk();
     remainingtime = atoi(argv[1]);
     printf("the remaining time for the created process is %d ...\n",remainingtime);
     int temp = -1; 
