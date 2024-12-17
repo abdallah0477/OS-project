@@ -265,10 +265,10 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
 
 void hpf(int N, int ProcessQueue, struct PriQueue *pq) 
 {
-    //started, resumed, stopped, finished.
+    
     //state=0 ready state=1 started state=2 resumed state=3 stopped state=4 finished 
     int process_count = 0;
-    //int remaining_time = 0;
+    
     struct Process curr;
     curr.id = -1; // Initialize to indicate no current process
     curr.run_before = 0; // Flag to track if the process has run before
@@ -280,10 +280,6 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
         if (!isEmpty(pq) && curr.id == -1)
         {
             curr = dequeue(pq);
-            //remaining_time = curr.running_time;
-            //if(curr.running_time==0){
-            //    remaining_time=1;
-            //}
         }
 
         // Manage the current process if it's valid
@@ -291,21 +287,21 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
         { 
             if (curr.run_before == 0)
             {
-                curr.state = 1; //Set state to started
+                curr.state = 1; //started
                 curr.run_before = 1;
                 start(&curr);
                 
             }
             else if (curr.state == 3) //if paused, resume the process
             {
-                curr.state = 2; // Set state to running
+                curr.state = 2; //resumed
                 resume(&curr);
             }
 
             sleep(1); // Simulate one time unit of execution
             curr.remaining_time--;
 
-            // Check if the process has finished execution
+            // process has finished execution
             if (curr.remaining_time == 0)
             {
                 printf("Process with id %d finished\n", curr.id);
@@ -316,7 +312,6 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
                 if (!isEmpty(pq))
                 {
                     curr = dequeue(pq);
-                    //remaining_time = curr.running_time;
                 }
                 else
                 {
@@ -342,23 +337,22 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
             }
 
             printf("Scheduler received process with id %d\n", processmsg.process.id);
-            enqueue(pq, processmsg.process, 1); // Add the new process to the queue
+            enqueue(pq, processmsg.process, 1); // Enqueue new process
             process_count++;
         }
 
         // Check for preemption
         if (!isEmpty(pq) && curr.id!=-1)
-        {//state=0 ready state=1 started state=2 resumed state=3 stopped(paused) state=4 finished 
-            struct Process temp = peek(pq); // Peek the next process in the queue
-            if (temp.priority < curr.priority) // Higher priority detected
+        {
+            struct Process temp = peek(pq); // begining of priority queue
+            if (temp.priority < curr.priority) // Higher priority 
             {
                 printf("Preempting process %d for process %d\n", curr.id, temp.id);
-                curr.state = 3; // Pause the current process
+                curr.state = 3; // Paused
                 Pause(&curr);
                 enqueue(pq, curr, 1); // Re-add the paused process to the queue
 
                 curr = dequeue(pq); // Switch to the higher-priority process
-                //remaining_time = curr.running_time;
             }
         }
     }
