@@ -12,6 +12,7 @@
 #include <signal.h>
 #include "string.h"
 #include <errno.h>
+#include <math.h>
 #define MAX_SIZE 100
 
 

@@ -12,10 +12,10 @@ char *p_path; // process path to be used in calling the file
 
 // variables for totals
 int total_wait = 0;
-int total_wta = 0;
+float total_wta = 0;
 int total_run = 0;
 float CPU_UT = 0;
-float avg_WTA = 0;
+double avg_WTA = 0;
 float avg_wait = 0;
 
 int still_sending = 1;
@@ -99,9 +99,10 @@ int main(int argc, char *argv[])
     avg_wait = total_wait / (float)N;
     float CPU_UT = ((float)total_run / (float)(getClk())) * 100.0;
     avg_WTA = total_wta / (float)N;
-    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %f\nAVG Waiting Time= %.2f\n",
-            CPU_UT, avg_WTA, avg_wait);
-    printf("CPU Utilization = %.0f%%\nAVG WTA= %f\nAVG Waiting Time= %.2f\n",
+    double roundedavg_WTA = ceil(avg_WTA* 100) / 100.0;
+    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2ff\nAVG Waiting Time= %.1f\n",
+            CPU_UT, roundedavg_WTA, avg_wait);
+    printf("CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.1f\n",
            CPU_UT, avg_WTA, avg_wait);
     printPriQueue(&pq);
 
@@ -506,86 +507,82 @@ void multifeedback(int ProcessQueueid, int n, int q)
 
 
 
-
-void RoundRobin(int ProcessQueue, int N, int Quantum)
-{
-    struct circularqueue readyprocesses;
-    int process_count;
-    struct Process p;
-    initialq(&readyprocesses);
-    // signal(SIGUSR1, process_finished_handler);
-    int executiontime;
-    struct msgbuff processmsg;
-    int timeslot = getClk();
-    if (Quantum <= 0)
-    {
-        Quantum = 1;
-    }
-    while (true)
-    {
-
-        while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1)
-        {
-            if (processmsg.process.id != -1)
-            {
-                enqueuecircular(&readyprocesses, processmsg.process);
-                process_count++;
-            }
+void RoundRobin(int ProcessQueue,int N,int Quantum){
+        struct circularqueue readyprocesses;
+        int process_count;
+        struct Process p;
+        initialq(&readyprocesses);
+        //signal(SIGUSR1, process_finished_handler);
+        int executiontime;
+        struct msgbuff processmsg;
+        int timeslot=getClk();
+        if(Quantum<=0){
+            Quantum=1;
         }
-
-        if (!still_sending && isEmptyCircular(&readyprocesses))
-        {
-            return;
+     while (true) {
+    
+    while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
+        if (processmsg.process.id != -1) { 
+            enqueuecircular(&readyprocesses, processmsg.process);
+            process_count++;
         }
+    }    
 
-        // Process a ready process from the queue
-        if (!isEmptyCircular(&readyprocesses))
-        {
-            struct Process p = dequeuecircular(&readyprocesses);
-
-            // If process is not yet run
-            if (!p.run_before)
-            {
-                p.run_before = true;
-                start(&p);
-                p.remaining_time = p.running_time;
-            }
-            else
-            {
-                resume(&p);
-            }
-
-            if (p.remaining_time > Quantum)
-            {
-                executiontime = Quantum;
-            }
-            else
-            {
-                executiontime = p.remaining_time; // Finish the process
-            }
-
-            int end = getClk() + executiontime;
-            while (getClk() < end)
-            {
-                sleep(1);
-            }
-
-            p.remaining_time -= executiontime;
-            if (p.remaining_time > 0)
-            {
-                Pause(&p);
-                enqueuecircular(&readyprocesses, p);
-            }
-            else
-            {
-                finish(&p);
-            }
-        }
-
-        if (process_count == N && isEmptyCircular(&readyprocesses))
-        {
-            break;
-        }
+    
+    if (!still_sending && isEmptyCircular(&readyprocesses)) {
+        return;
     }
 
+    // Process a ready process from the queue
+    if (!isEmptyCircular(&readyprocesses)) {
+         p=dequeuecircular(&readyprocesses);
+       // If process is not yet run
+        if (!p.run_before) {
+            p.run_before = true;
+            start(&p);
+            p.remaining_time=p.running_time;
+            
+            
+        } else {
+            resume(&p);
+        }
+         if (p.remaining_time> Quantum) {
+            executiontime = Quantum;
+        } else {
+            executiontime = p.remaining_time; // Finish the process
+        }
+
+        int end = getClk() + executiontime;
+        while(getClk()<end){
+            sleep(1);
+             while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
+        if (processmsg.process.id != -1) { 
+            enqueuecircular(&readyprocesses, processmsg.process);
+            process_count++;
+        }
+    } 
+        }
+      
+        p.remaining_time -= executiontime;
+        if (p.remaining_time > 0) {
+            Pause(&p); 
+            //check again before enqueueing for newly arrived processes
+                   while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
+        if (processmsg.process.id != -1) { 
+            enqueuecircular(&readyprocesses, processmsg.process);
+            process_count++;
+        }
+    } 
+        //re_enqueue 
+            enqueuecircular(&readyprocesses, p);
+        } else {
+            finish(&p); 
+        }
+    }
+    
+    if(process_count == N  && isEmptyCircular(&readyprocesses)){
+        break;
+    }
+    }
 }
+
