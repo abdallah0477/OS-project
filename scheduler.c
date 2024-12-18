@@ -359,8 +359,8 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
 }    
 void multifeedback(int ProcessQueueid, int n, int q)
 {
-    struct circularqueue mlfq[10];
-    for (int i = 0; i < 10; i++)
+    struct circularqueue mlfq[11];
+    for (int i = 0; i < 11; i++)
     { // Initialize all queues
         initialq(&mlfq[i]);
     }
@@ -399,7 +399,7 @@ void multifeedback(int ProcessQueueid, int n, int q)
        
         if (current_process.id == -1)
         {
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 11; i++)
             {
                 if (!isEmptyCircular(&mlfq[i])) //badawar ala elprocess elhasha8alha
                 {
@@ -412,17 +412,7 @@ void multifeedback(int ProcessQueueid, int n, int q)
 
         if (current_process.id != -1)
         {
-            int exec_time = 0;
-            if (current_process.remaining_time < q)
-            {
-                exec_time = current_process.remaining_time;
-            }
-            else
-            {
-                exec_time = q;
-            }
 
-            int end_time = clock_time + exec_time;
 
               if (current_process.run_before == 1)
                 {
@@ -435,6 +425,17 @@ void multifeedback(int ProcessQueueid, int n, int q)
                     start(&current_process);
                    
                 }
+              int exec_time = 0;
+            if (current_process.remaining_time < q)
+            {
+                exec_time = current_process.remaining_time;
+            }
+            else
+            {
+                exec_time = q;
+            }
+
+            int end_time = clock_time + exec_time;
 
             while (getClk() < end_time)
             { // Time the process will run
@@ -455,7 +456,7 @@ void multifeedback(int ProcessQueueid, int n, int q)
             if (current_process.remaining_time > 0)
             {
                 Pause(&current_process);
-                if(current_level<9){
+                if(current_level<10){
                     enqueuecircular(&mlfq[current_level + 1], current_process);
                 }
                 else{
@@ -479,7 +480,7 @@ void multifeedback(int ProcessQueueid, int n, int q)
             {
                 while(isEmptyCircular(&mlfq[current_level])){
                     current_level++;
-                    if(current_level==10){
+                    if(current_level==11){
                         current_level=0;
                     }
                 }
