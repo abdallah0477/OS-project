@@ -30,14 +30,14 @@ void multifeedback(int MessageQueue, int n, int q);
 void SJF(int N, int MessageQueue, struct PriQueue *pq);
 void RoundRobin(int MessageQueue, int N, int Quantum);
 void hpf(int MessageQueue, int N, struct PriQueue *pq);
-
+struct BuddyAllocator allocator;
 struct Process *processes;
 pid_t ProcessID;
 int main(int argc, char *argv[])
 {
     initClk();
     printf(" in Scheduler\n");
-
+    initialize_buddy_allocator(&allocator);
     char processBuffer[500];
     getcwd(processBuffer, sizeof(processBuffer)); // putting the directory path into the buffer
     p_path = strcat(processBuffer, "/process.out");
@@ -83,10 +83,12 @@ int main(int argc, char *argv[])
 
     if (Scheduling_Algorithm == 1)
     {
+        printf("Starting sjf\n");
         SJF(N, ProcessQueue, &pq);
     }
     if (Scheduling_Algorithm == 2)
     {
+        printf("Starting hpf\n");
         hpf(N, ProcessQueue, &pq);
     }
     if (Scheduling_Algorithm == 3)
@@ -97,6 +99,7 @@ int main(int argc, char *argv[])
     }
     if (Scheduling_Algorithm == 4)
     {
+        printf("Starting multi level feedback\n");
         multifeedback(ProcessQueue, N, Quantum);
     }
     fclose(out_log);
@@ -124,10 +127,19 @@ int main(int argc, char *argv[])
 void start(struct Process *process)
 {
     process->run_before=1;
+   
     if (process->id <= -1)
     {
         return;
     }
+    int memory_needed = process->MEMSIZE;
+    void *allocated_memory = allocate_memory( &allocator, memory_needed);
+    if (!allocated_memory)
+    {
+        printf("Memory allocation failed for process %d, size %d\n", process->id, process->MEMSIZE);
+        return;
+    }
+     process->memory_address = allocated_memory;
      int waiting_time=getClk()-process->arrival_time;
      process->wait_time=waiting_time;
      process->remaining_time = process->running_time;
@@ -164,7 +176,7 @@ void finish(struct Process *process)
     total_wait += process->wait_time;
     total_wta += WTA;
     total_run += process->running_time;
-
+    // fill in memory deallocation
     kill(process->p_pid, SIGCONT);
 }
 
@@ -188,7 +200,7 @@ void resume(struct Process *process)
     printf("At time %d process %d resumed arr %d total %d remain %d wait %d\n",
            getClk(), process->id, process->arrival_time, process->running_time, process->remaining_time, process->wait_time);
 }
-
+//sjf
 void SJF(int N, int ProcessQueue, struct PriQueue *pq)
 {
     int process_count = 0;
@@ -259,11 +271,11 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
         }
     }
 }
-
+//hpf
 void hpf(int N, int ProcessQueue, struct PriQueue *pq) 
 {
     
-    //state=0 ready state=1 started state=2 resumed state=3 stopped state=4 finished 
+    //state=1 started state=2 resumed state=3 stopped state=4 finished 
     int process_count = 0;
     
     struct Process curr;
@@ -353,7 +365,8 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
             }
         }
     }
-}    
+}  
+//multilevel feedback queue  
 void multifeedback(int ProcessQueueid, int n, int q)
 {
     struct circularqueue mlfq[11];
@@ -496,9 +509,7 @@ void multifeedback(int ProcessQueueid, int n, int q)
 
     }
 }
-
-
-
+//round robin
 void RoundRobin(int ProcessQueue,int N,int Quantum){
         struct circularqueue readyprocesses;
         int process_count;

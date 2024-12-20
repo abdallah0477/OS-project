@@ -14,7 +14,9 @@
 #include <errno.h>
 #include <math.h>
 #define MAX_SIZE 100
-
+#define MAX_BLOCKS 10
+#define MAX_BLOCK_SIZE 1024
+#define TOTAL_MEMORY_SIZE 1024
 
 
 
@@ -80,6 +82,7 @@ struct Process{
     int wait_time;
     int time_stopped;
     int run_before;
+    void* memory_address; // Allocated memory block address
 };
 
 struct msgbuff{
@@ -218,6 +221,68 @@ void printCircularQueue(struct circularqueue *cq) {
 int isEmptyCircular(struct circularqueue *cq) {
     return cq->size == 0;
 }
+
+
+//memory allocation
+
+struct BuddyBlock {
+    int size; // Size of block
+    void* address; // Pointer to the memory block
+};
+
+struct BuddyAllocator { //akeno struct kebir gowa arrays for each size
+    struct BuddyBlock free_space_array[10]; 
+    //3lshan max size 1024 yebaa ehna mehtageen bss 2^0 lehad 2^9
+};
+char memory_pool[TOTAL_MEMORY_SIZE]; // pointer to the first byte of the array.
+
+void initialize_buddy_allocator(struct BuddyAllocator* allocator) {
+    //initializing elba2y bi null
+    for (int i = 0; i < MAX_BLOCKS; i++) {
+        allocator->free_space_array[i].size = 0;
+        allocator->free_space_array[i].address = NULL;
+    }
+    // Adding the full memory block (1024 bytes) to the largest block size free list
+    allocator->free_space_array[9].size = MAX_BLOCK_SIZE;
+    allocator->free_space_array[9].address = memory_pool;
+    
+    printf("buddy allocator initialized successfully\n");
+}
+void* allocate_memory(struct BuddyAllocator* allocator, int process_size) {
+    int required_size = 1;
+    int index = 0;
+    
+    // Find the smallest power of 2 >= size
+    while (required_size < process_size) {
+        required_size *= 2;
+        index++;
+    }
+    printf("Requesting allocation for size: %d\n", process_size);
+    // Check if a block of the required size is available
+    for (int i = index; i < 10; i++) {
+        if (allocator->free_space_array[i].size > 0) {// free list at a particular index i contains a block that is free and large enough for the requested allocation
+            // Split blocks if necessary
+            printf("Found available block of size %d at index %d\n",allocator->free_space_array[i].size, i);
+            while (i > index) {
+                i--;
+                allocator->free_space_array[i].size = required_size; //updates freelist
+                allocator->free_space_array[i].address =
+                    (char*)allocator->free_space_array[i + 1].address + required_size;
+            }
+
+            // Allocate the block
+            void* block_address = allocator->free_space_array[i].address;
+            allocator->free_space_array[i].size = 0; // Mark block as used
+            printf("Memory allocated successfuly\n");
+            return block_address;
+        }
+    }
+     // No suitable block available
+    printf("Memory allocation failed for requested size: %d\n", process_size);
+    return NULL;
+}
+
+
 
 
 typedef short bool;
