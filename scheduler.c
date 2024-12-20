@@ -6,7 +6,11 @@ void start(struct Process *p);
 void finish(struct Process *p);
 void resume(struct Process *p);
 void Pause(struct Process *p);
+//these functions also concurrently handle ".log" file
 //==========================================================
+void printPerf(int N); 
+// handles .perf file
+//=========================================================
 
 char *p_path; // process path to be used in calling the file
 
@@ -17,8 +21,8 @@ int total_run = 0;
 float CPU_UT = 0;
 double avg_WTA = 0;
 float avg_wait = 0;
-
 int still_sending = 1;
+
 FILE *out_log;
 FILE *out_perf;
 
@@ -95,15 +99,8 @@ int main(int argc, char *argv[])
     {
         multifeedback(ProcessQueue, N, Quantum);
     }
-
-    avg_wait = total_wait / (float)N;
-    float CPU_UT = ((float)total_run / (float)(getClk())) * 100.0;
-    avg_WTA = total_wta / (float)N;
-    double roundedavg_WTA = ceil(avg_WTA* 100) / 100.0;
-    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2ff\nAVG Waiting Time= %.1f\n",
-            CPU_UT, roundedavg_WTA, avg_wait);
-    printf("CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.1f\n",
-           CPU_UT, avg_WTA, avg_wait);
+    fclose(out_log);
+    printPerf(N);
     printPriQueue(&pq);
 
     // printf("Processes:\n");
@@ -186,9 +183,9 @@ void resume(struct Process *process)
 {
 
     process->wait_time += getClk() - process->time_stopped;
-    fprintf(out_log, "At time %d process %d resumed arr %d total %d remain %.2d wait %.2d\n",
+    fprintf(out_log, "At time %d process %d resumed arr %d total %d remain %d wait %d\n",
             getClk(), process->id, process->arrival_time, process->running_time, process->remaining_time, process->wait_time);
-    printf("At time %d process %d resumed arr %d total %d remain %.2d wait %.2d\n",
+    printf("At time %d process %d resumed arr %d total %d remain %d wait %d\n",
            getClk(), process->id, process->arrival_time, process->running_time, process->remaining_time, process->wait_time);
 }
 
@@ -252,7 +249,7 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
                 }
             }
             enqueue(pq, processmsg.process, 0);
-            printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
+            printf("Scheduler Received Process with pid %d and memsize %d\n", processmsg.process.id,processmsg.process.MEMSIZE);
             process_count++;
         }
 
@@ -581,3 +578,14 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
     }
 }
 
+void printPerf(int N){
+    avg_wait = total_wait / (float)N;
+    float CPU_UT = ((float)total_run / (float)(getClk())) * 100.0;
+    avg_WTA = total_wta / (float)N;
+    double roundedavg_WTA = ceil(avg_WTA* 100) / 100.0;
+    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2ff\nAVG Waiting Time= %.1f\n",
+            CPU_UT, roundedavg_WTA, avg_wait);
+    printf("CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.1f\n",
+           CPU_UT, avg_WTA, avg_wait);
+    fclose(out_perf);
+    }

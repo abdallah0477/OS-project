@@ -17,29 +17,20 @@ int* shmaddrinfo;
 
 int main(int argc, char *argv[])
 {
-    
     union Semun semun;
-   // semsendid = ftok("process_generator",66);
-    //semrecid = ftok("process_generator",67);
-    ProcessQueueid = ftok("process_generator",68);
-    keyidshmid = ftok("process_generator",69);
-
-
     
-    //semsend = semget(semsendid,1, 0666 | IPC_CREAT);
-    //semrec = semget(semrecid,1, 0666 | IPC_CREAT);
+    //Message Queue for Processes
+    ProcessQueueid = ftok("process_generator",68);
     ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
     if (ProcessQueue == -1) {
     perror("msgget failed");
     exit(1);
 }
+
+
+    //Shared Memory Array for Process Details
+    keyidshmid = ftok("process_generator",69);    
     shmNumberProcess = shmget(keyidshmid,sizeof(int) * ARRAY_SIZE,0666 | IPC_CREAT);
-
-
-    //semun.val = 0;
-
-    //semctl(semsend, 0, SETVAL, semun);
-    //semctl(semrec, 0, SETVAL, semun);
     shmaddrinfo = (int *)shmat(shmNumberProcess, (void *)0, 0); 
     if (shmaddrinfo == (int *)-1) {
         perror("shmat failed");
@@ -70,7 +61,7 @@ int main(int argc, char *argv[])
             printf("Multilevel Feedback Queue Scheduling With Quantum = %s\n", argv[5]);
         } 
         else {
-            printf("Invalid scheduling algorithm number.\n");
+            printf("Invalid scheduling algorithm choice.\n");
             exit(1);
         }
     }
@@ -80,9 +71,7 @@ int main(int argc, char *argv[])
     pfile = fopen("process.txt","r");
 
     // 2. Read the chosen scheduling algorithm and its parameters, if there are any from the argument list.
-   int N;
-  
-   
+    int N;
     if (fscanf(pfile, "%d", &N) != 1) {
         perror("Error reading file");
         fclose(pfile);
@@ -102,7 +91,7 @@ int main(int argc, char *argv[])
         shmaddrinfo[i] = info[i];
     }
 
-    printf("Pgen\nProcesses: %d Scheduling algorithm number: %d quantum: %d\n",N,Scheduling_Algorithm,Quantum);
+    printf("Process generator Processes: %d Scheduling algorithm number: %d quantum: %d\n",N,Scheduling_Algorithm,Quantum);
 
     // 3. Initiate and create the scheduler and clock processes.
     clkpid = fork(); // 3amalt fork le clk proceess
@@ -157,7 +146,7 @@ int main(int argc, char *argv[])
 
         // 
         struct Process p;
-        if (sscanf(buffer, "%d %d %d %d", &p.id, &p.arrival_time, &p.running_time, &p.priority) == 4) {
+        if (sscanf(buffer, "%d %d %d %d %d", &p.id, &p.arrival_time, &p.running_time,&p.priority,&p.MEMSIZE) == 5) {
             if (process_count < N) {
                 processes[process_count++] = p;
             }
@@ -199,8 +188,6 @@ int main(int argc, char *argv[])
             //        processes[current_process].id, 
             //        processes[current_process].arrival_time);
 
-           // up(semsend);  
-           // down(semrec); 
             
             current_process++;
         }
@@ -218,8 +205,6 @@ int main(int argc, char *argv[])
     shmdt(shmaddrinfo);  
     shmctl(shmNumberProcess, IPC_RMID, NULL); 
     msgctl(ProcessQueue, IPC_RMID, (struct msqid_ds *)0);
-   // semctl(semsend,1,IPC_RMID);
-    //semctl(semrec,1,IPC_RMID);
     destroyClk(true);
     return 0;
 
@@ -227,16 +212,16 @@ int main(int argc, char *argv[])
 
 void clearResources(int signum)
 {
+    shmdt(shmaddr);
+    kill(clkpid,SIGINT);
     kill(clkpid, SIGTERM);
     kill(schedulerpid,SIGTERM);
 
 
-    shmdt(shmaddr);
+    
     shmdt(shmaddrinfo);  
     shmctl(shmNumberProcess, IPC_RMID, NULL);
 
-    //semctl(semsend,1,IPC_RMID);
-    //semctl(semrec,1,IPC_RMID);
     
 
     msgctl(ProcessQueue, IPC_RMID, (struct msqid_ds *)0);

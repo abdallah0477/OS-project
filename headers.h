@@ -71,6 +71,7 @@ struct Process{
     int priority; 
     int arrival_time;
     int running_time;
+    int MEMSIZE;
     int remaining_time;
     int finish_time;
     int turnaroundtime;
