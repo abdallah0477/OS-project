@@ -30,14 +30,12 @@ void multifeedback(int MessageQueue, int n, int q);
 void SJF(int N, int MessageQueue, struct PriQueue *pq);
 void RoundRobin(int MessageQueue, int N, int Quantum);
 void hpf(int MessageQueue, int N, struct PriQueue *pq);
-struct BuddyAllocator allocator;
 struct Process *processes;
 pid_t ProcessID;
 int main(int argc, char *argv[])
 {
     initClk();
     printf(" in Scheduler\n");
-    initialize_buddy_allocator(&allocator);
     char processBuffer[500];
     getcwd(processBuffer, sizeof(processBuffer)); // putting the directory path into the buffer
     p_path = strcat(processBuffer, "/process.out");
@@ -80,28 +78,32 @@ int main(int argc, char *argv[])
     int process_count = 0;
 
     struct PriQueue pq = {.size = 0};
+    
+    
+
 
     if (Scheduling_Algorithm == 1)
     {
         printf("Starting sjf\n");
         SJF(N, ProcessQueue, &pq);
     }
-    if (Scheduling_Algorithm == 2)
-    {
-        printf("Starting hpf\n");
-        hpf(N, ProcessQueue, &pq);
-    }
-    if (Scheduling_Algorithm == 3)
-    {
-        printf("Starting RR\n");
-        RoundRobin(ProcessQueue, N, Quantum);
-        printf("i am done");
-    }
-    if (Scheduling_Algorithm == 4)
-    {
-        printf("Starting multi level feedback\n");
-        multifeedback(ProcessQueue, N, Quantum);
-    }
+    // }
+    // if (Scheduling_Algorithm == 2)
+    // {
+    //     printf("Starting hpf\n");
+    //     hpf(N, ProcessQueue, &pq);
+    // }
+    // if (Scheduling_Algorithm == 3)
+    // {
+    //     printf("Starting RR\n");
+    //     RoundRobin(ProcessQueue, N, Quantum);
+    //     printf("i am done");
+    // }
+    // if (Scheduling_Algorithm == 4)
+    // {
+    //     printf("Starting multi level feedback\n");
+    //     multifeedback(ProcessQueue, N, Quantum);
+    // }
     fclose(out_log);
     printPerf(N);
     printPriQueue(&pq);
@@ -126,20 +128,14 @@ int main(int argc, char *argv[])
 // start function definition
 void start(struct Process *process)
 {
+
     process->run_before=1;
    
     if (process->id <= -1)
     {
         return;
     }
-    int memory_needed = process->MEMSIZE;
-    void *allocated_memory = allocate_memory( &allocator, memory_needed);
-    if (!allocated_memory)
-    {
-        printf("Memory allocation failed for process %d, size %d\n", process->id, process->MEMSIZE);
-        return;
-    }
-     process->memory_address = allocated_memory;
+    
      int waiting_time=getClk()-process->arrival_time;
      process->wait_time=waiting_time;
      process->remaining_time = process->running_time;
@@ -158,6 +154,7 @@ void start(struct Process *process)
         sprintf(Running_Time, "%d", process->running_time); // convert the remaining time into string to be sended to the created process
         execl(p_path, "process.out", Running_Time, NULL);
     }
+
 }
 
 // finish function definition
@@ -208,8 +205,11 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
     struct Process curr;
     curr.id = -1; // Initialize to indicate no current process
     struct msgbuff processmsg;
-
-    while (process_count <= N || !isEmpty(pq) || curr.state == 1)
+    struct Node* root = initBuddySystem();
+    Node* Block;
+    struct WaitQueue* queue = {0};
+        
+    while (process_count <= N || !isEmpty(pq) || curr.state == 1 || !isEmptyWaitQueue(queue))
     {
         if (!isEmpty(pq) && curr.id == -1)
         {
@@ -230,8 +230,11 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
 
         if (remaining_time == 0 && curr.id != -1)
         {
+            //lesa 3ayez a check el wait queue had yefakarny bokra
             curr.state = 0;
             finish(&curr);
+            freeMemory(curr.Block);
+            //3ayzeeen nezawed el memorylog file too
 
             if (!isEmpty(pq))
             {
@@ -245,7 +248,6 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
             }
         }
 
-        //
         while (true)
         {
             if (msgrcv(ProcessQueue, &processmsg, N * sizeof(struct Process), 1, IPC_NOWAIT) == -1)
@@ -260,8 +262,18 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
                     exit(1);
                 }
             }
-            enqueue(pq, processmsg.process, 0);
+            
             printf("Scheduler Received Process with pid %d and memsize %d\n", processmsg.process.id,processmsg.process.MEMSIZE);
+            Node* Block = findFreeBlock(root,processmsg.process.MEMSIZE);
+            if(Block== NULL){
+                printf("Not enough memory available, process moved to waiting queue");
+                enqueueWaitQueue(queue,processmsg.process);
+            }
+            else{
+                allocateMemory(Block,processmsg.process.MEMSIZE);
+                processmsg.process.Block = Block;
+                enqueue(pq,processmsg.process,0);
+            }
             process_count++;
         }
 
@@ -271,7 +283,7 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
         }
     }
 }
-//hpf
+// // //hpf
 void hpf(int N, int ProcessQueue, struct PriQueue *pq) 
 {
     
