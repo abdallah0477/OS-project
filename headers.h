@@ -70,6 +70,8 @@ void up(int sem)
 typedef struct Node {
     int size;               // Size of the block (in bytes)
     int allocated;          // 0 for free, 1 for allocated
+    int start_address; // Start address of the memory block 
+    int end_address; // End address of the memory block
     struct Node *left;      // Left child (buddy)
     struct Node *right;     // Right child (buddy)
     struct Node *parent;    // Parent node
@@ -317,10 +319,12 @@ int getNearestPowerOfTwo(int num) {//60 64 //120 128
 
 
 // Function to create a new node
-Node* createNode(int size) {
+Node* createNode(int size,int start) {
     Node* node = (Node*)malloc(sizeof(Node));
     node->size = size;
     node->allocated = 0;  // Initially free
+    node->start_address=start;
+    node->end_address=start+size-1;
     node->left = node->right = node->parent = NULL;
     return node;
 }
@@ -336,44 +340,22 @@ void splitTree(Node* node) { //split w create no
     if (node->size == MIN_BLOCK_SIZE) {
         return;
     }
+    int half_size=node->size/2;
 
-    node->left = createNode(node->size / 2);
-    node->right = createNode(node->size / 2);
+    node->left = createNode(half_size,node->start_address);
+    node->right = createNode(half_size ,node->start_address+half_size);
     node->left->parent = node;
     node->right->parent = node;
 }
 
 Node* initBuddySystem() { //initialize memory
-    Node* root = createNode(MAX_MEMORY_SIZE);
+    Node* root = createNode(MAX_MEMORY_SIZE,0);
     //int MemoryLeft = MAX_MEMORY_SIZE;
     
     return root;
 }
 // Function to free a block and merge if possible
-void freeMemory(Node* block) {
-    if (block == NULL) return;
 
-    block->allocated = 0;
-    printf("Freed block of size %d\n", block->size);
-
-
-    if (block->parent) {
-        Node* buddy; //bashoof right node wala left node;
-        if (block == block->parent->left) {
-            buddy = block->parent->right;
-        } else {
-            buddy = block->parent->left;
-        }
-
-        if (buddy!=NULL && buddy->allocated == 0) {
-            // Merge the blocks
-            printf("Merging block of size %d with buddy of size %d\n", block->size, buddy->size);
-            block->parent->left = NULL;
-            buddy->parent->right = NULL;
-            freeMemory(block->parent);  //walahy recursively call func to clear unoccupied nodes
-        }
-    }
-}
 
 
 Node* findFreeBlock(Node* root, int size) {
@@ -398,18 +380,6 @@ Node* findFreeBlock(Node* root, int size) {
 }
 
 
-Node* allocateMemory(Node* root, int size) {
-    Node*Block = findFreeBlock(root,size); //call el function el fo2 washoof hatraga3 eh 
-
-    if (Block == NULL) {
-        printf("No suitable block found for allocation for block with size %d\n",size);
-        return NULL;
-    }
-    
-    Block->allocated = 1;  
-    printf("Memory Allocation Successful\n");
-    return Block;
-}
 
 void printTree(Node* root, int level) {
 

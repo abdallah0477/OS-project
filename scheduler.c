@@ -27,6 +27,7 @@ int still_sending = 1;
 
 FILE *out_log;
 FILE *out_perf;
+FILE *out_memory;
 
 void multifeedback(int MessageQueue, int n, int q);
 void SJF(int N, int MessageQueue, struct PriQueue *pq);
@@ -45,6 +46,7 @@ int main(int argc, char *argv[])
     // initialize output files-------------
     out_log = fopen("scheduler.log", "w");
     out_perf = fopen("scheduler.perf", "w");
+    out_memory=fopen("memory.log","w");
     //------------------------------------
 
     union Semun semun;
@@ -126,7 +128,47 @@ int main(int argc, char *argv[])
     return 0;
     destroyClk(false);
 }
+//allocate function
 
+Node* allocateMemory(Node* root, int size) {
+    Node*Block = findFreeBlock(root,size); //call el function el fo2 washoof hatraga3 eh 
+
+    if (Block == NULL) {
+        printf("No suitable block found for allocation for block with size %d\n",size);
+        return NULL;
+    }
+
+    
+    Block->allocated = 1;  
+    printf("Memory Allocation Successful\n");
+    return Block;
+}
+
+//Deallocate function
+void freeMemory(Node* block) {
+    if (block == NULL) return;
+
+    block->allocated = 0;
+    printf("Freed block of size %d\n", block->size);
+
+
+    if (block->parent) {
+        Node* buddy; //bashoof right node wala left node;
+        if (block == block->parent->left) {
+            buddy = block->parent->right;
+        } else {
+            buddy = block->parent->left;
+        }
+
+        if (buddy!=NULL && buddy->allocated == 0) {
+            // Merge the blocks
+            printf("Merging block of size %d with buddy of size %d\n", block->size, buddy->size);
+            block->parent->left = NULL;
+            buddy->parent->right = NULL;
+            freeMemory(block->parent);  //walahy recursively call func to clear unoccupied nodes
+        }
+    }
+}
 // start function definition
 void start(struct Process *process)
 {
@@ -236,12 +278,18 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
             curr.state = 0;
             finish(&curr);
             freeMemory(curr.Block);
+                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
+             getClk(), curr.Block->size,curr.id ,curr.Block->start_address, curr.Block->end_address);
+
             if(!isEmptyWaitQueue(Queue)){
                 struct Process head = peekWaitQueue(Queue);
                 Node* Check = allocateMemory(root,head.MEMSIZE);
-                if(Check != NULL){
+                if (Check != NULL)
+                {
                     head = dequeueWaitQueue(Queue);
-                    enqueue(pq,head,0);
+                    enqueue(pq, head, 0);
+                    fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                     getClk(), head.Block->size,head.id, head.Block->start_address, head.Block->end_address);
                 }
             }
 
@@ -283,6 +331,8 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
                 printWaitQueue(Queue);
             }
             else{
+            fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+            getClk(), Block->size, processmsg.process.id,Block->start_address, Block->end_address);
             processmsg.process.Block = Block;
             enqueue(pq, processmsg.process, 0);
             printPriQueue(pq);
@@ -407,7 +457,10 @@ void multifeedback(int ProcessQueueid, int n, int q)
     int process_count = 0;
     int higher_process = 0; // Flag to show if a higher priority process entered during run
     int higher_level = -1;
-
+    Node*root = initBuddySystem();
+    struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
+    Queue->size = 0; 
+    
 
     
 
@@ -424,8 +477,17 @@ void multifeedback(int ProcessQueueid, int n, int q)
         {
 
             printf("process with id %d priority %d arrived\n", processmsg.process.id,processmsg.process.priority);
-            enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
-            processmsg.process.state=0;
+            Node *temp=allocateMemory(root,processmsg.process.MEMSIZE);
+            if(temp==NULL){
+                enqueueWaitQueue(Queue,processmsg.process);
+                printf("process with id %d entered waiting queue\n",processmsg.process.id);
+            }
+            else{
+               enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
+               processmsg.process.Block=temp;
+               processmsg.process.state=0;
+               printf("process with id %d entered ready queue\n",processmsg.process.id);
+            }
 
         }
 
@@ -502,6 +564,7 @@ void multifeedback(int ProcessQueueid, int n, int q)
             else
             {
                 finish(&current_process);
+                freeMemory(current_process.Block);
                 process_count++;
                 current_process.state=2;
                 current_process.id=-1;
