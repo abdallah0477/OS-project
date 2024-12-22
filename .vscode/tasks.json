@@ -1,0 +1,43 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Process Generator",
+            "type": "shell",
+            "command": "gcc",
+            "args": [
+                "/home/hussienawad/project/process_generator.c", // Replace with the actual path if not in the root
+                "-g",
+                "-o",
+                "process_generator",
+                 // Enable debugging information
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Builds the process_generator.c file"
+        },
+        {
+            "label": "Run Process Generator",
+            "type": "shell",
+            "command": "./process_generator",
+            "args": [
+                "process.txt", // Replace with your first argument
+                "-sch",
+                "1"  // Replace with your second argument
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        }
+    ]
+}

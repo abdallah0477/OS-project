@@ -1,6 +1,8 @@
 #include "headers.h"
 #define ARRAY_SIZE 3
 
+//
+
 //===============functions managing pauses=================
 void start(struct Process *p);
 void finish(struct Process *p);
@@ -205,9 +207,9 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
     struct Process curr;
     curr.id = -1; // Initialize to indicate no current process
     struct msgbuff processmsg;
-    struct Node* root = initBuddySystem();
-    Node* Block;
+    Node* root = initBuddySystem();
     struct WaitQueue* queue = {0};
+    
         
     while (process_count <= N || !isEmpty(pq) || curr.state == 1 || !isEmptyWaitQueue(queue))
     {
@@ -234,6 +236,19 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
             curr.state = 0;
             finish(&curr);
             freeMemory(curr.Block);
+            if(!isEmptyWaitQueue(queue)){
+                struct Process p = peekWaitQueue(queue);
+                Node *Block;
+                if(Block == NULL){
+                    printf("Not enough memory available, process stays in waiting queue");
+                
+                }
+                else{
+                    allocateMemory(Block,processmsg.process.MEMSIZE);
+                    processmsg.process.Block = Block;
+                    enqueue(pq,processmsg.process,0);
+                }
+            }
             //3ayzeeen nezawed el memorylog file too
 
             if (!isEmpty(pq))
@@ -262,16 +277,17 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
                     exit(1);
                 }
             }
-            
+        //memorylog
+        //0 to 256 processA
+        
             printf("Scheduler Received Process with pid %d and memsize %d\n", processmsg.process.id,processmsg.process.MEMSIZE);
-            Node* Block = findFreeBlock(root,processmsg.process.MEMSIZE);
-            if(Block== NULL){
+            Node* Block = allocateMemory(root,processmsg.process.MEMSIZE);
+            if(Block == NULL){
                 printf("Not enough memory available, process moved to waiting queue");
                 enqueueWaitQueue(queue,processmsg.process);
+                printWaitQueue(queue);
             }
             else{
-                allocateMemory(Block,processmsg.process.MEMSIZE);
-                processmsg.process.Block = Block;
                 enqueue(pq,processmsg.process,0);
             }
             process_count++;

@@ -150,6 +150,23 @@ struct Process peekWaitQueue(struct WaitQueue* q) {
 
     return q->waitQueue[0];
 }
+void printWaitQueue(struct WaitQueue* q) {
+    if (isEmptyWaitQueue(q)) {
+        printf("The WaitQueue is empty.\n");
+        return;
+    }
+
+    printf("WaitQueue Contents:\n");
+    for (int i = 0; i < q->size; i++) {
+        printf("Process[%d]: ID: %d, Arrival Time: %d, Running Time: %d, Priority: %d, Memory Size: %d\n",
+               i, 
+               q->waitQueue[i].id, 
+               q->waitQueue[i].arrival_time, 
+               q->waitQueue[i].running_time, 
+               q->waitQueue[i].priority,
+               q->waitQueue[i].MEMSIZE);
+    }
+}
 
 
 //============================================================PRIORITY QUEUE======================================================================//
@@ -287,6 +304,17 @@ int isEmptyCircular(struct circularqueue *cq) {
 
 //=============================================================MEMORY ALLOCATION TREE==========================================================
 
+int getNearestPowerOfTwo(int num) {//60 64 //120 128
+    if (num <= 0) {
+        return 1; 
+    }
+    int power = 1;
+    while ((1 << power) < num) { //binary shifting
+        power++;
+    }
+    return 1 << power; 
+}
+
 
 // Function to create a new node
 Node* createNode(int size) {
@@ -296,69 +324,31 @@ Node* createNode(int size) {
     node->left = node->right = node->parent = NULL;
     return node;
 }
-// Function to split the tree into smaller blocks (recursively)
-void splitTree(Node* node) {
-    // Stop if the node size is the minimum block size
+
+int isNodeSplit(Node* node) {
+    if (node == NULL) {
+        return 0; // A NULL node is not split
+    }
+    return (node->left != NULL && node->right != NULL);
+}
+
+void splitTree(Node* node) { //split w create no
     if (node->size == MIN_BLOCK_SIZE) {
         return;
     }
 
-    // Create left and right children for the current node
     node->left = createNode(node->size / 2);
     node->right = createNode(node->size / 2);
     node->left->parent = node;
     node->right->parent = node;
-    printf("Split from %d to %d\n",node->size,node->left->size);
 }
 
-// Function to initialize the memory tree (pre-split buddy system)
-Node* initBuddySystem() {
-    // Create the root node (1024 bytes)
+Node* initBuddySystem() { //initialize memory
     Node* root = createNode(MAX_MEMORY_SIZE);
-
+    //int MemoryLeft = MAX_MEMORY_SIZE;
     
     return root;
 }
-
-//lesa el etnen functions dol 3ayzeen yetzabaato
-// Function to find a free block of at least the given size
-Node* findFreeBlock(Node* root, int size) {
-    if (root == NULL) {
-        return NULL;
-        }
-
-    if (root->size == MIN_BLOCK_SIZE) {
-
-        return NULL;
-    }
-    if (root->size>size) 
-    {
-    splitTree(root);
-    Node* leftResult = findFreeBlock(root->left, size);
-    if (leftResult) return leftResult;
-    
-    Node* rightResult = findFreeBlock(root->right, size);
-    return rightResult;
-    }
-    if(size >= root->size){
-        root=root->parent;
-        printf("Allocated block of size %d for process with size %d\n",root->size,size);
-        return root;
-    }
-}
-
-// Function to allocate memory (find free block and allocate it)
-Node* allocateMemory(Node* root, int size) {
-    Node* block = findFreeBlock(root, size);
-    if (block == NULL) {
-        printf("No suitable block found for allocation\n");
-        return NULL;
-    }
-    
-    block->allocated = 1;  // Mark the block as allocated
-    return block;
-}
-
 // Function to free a block and merge if possible
 void freeMemory(Node* block) {
     if (block == NULL) return;
@@ -366,7 +356,7 @@ void freeMemory(Node* block) {
     block->allocated = 0;
     printf("Freed block of size %d\n", block->size);
 
-    // Try to merge with its buddy if both are free
+
     if (block->parent) {
         Node* buddy; //bashoof right node wala left node;
         if (block == block->parent->left) {
@@ -380,43 +370,65 @@ void freeMemory(Node* block) {
             printf("Merging block of size %d with buddy of size %d\n", block->size, buddy->size);
             block->parent->left = NULL;
             buddy->parent->right = NULL;
-            freeMemory(block->parent);  // Free and merge up the tree
+            freeMemory(block->parent);  //walahy recursively call func to clear unoccupied nodes
         }
     }
 }
 
 
-
-// Function to print the structure of the tree (for debugging)
-void printTree(Node* root, int level, int isLeft) {
-    if (root == NULL) {
-        return;
+Node* findFreeBlock(Node* root, int size) {
+    if(root == NULL){// error case
+        return NULL;
+    }
+    if(root->allocated == 1){//base case
+        return NULL;
+    }
+    int BestFit = getNearestPowerOfTwo(size); // el size el ana 3ayzo 
+    if(root->size == BestFit && !isNodeSplit(root)){ //walahy law el makan monaseb w msh split (occupied) doos
+        return root;
+    }
+    if(!isNodeSplit(root)){//walahy law el makan msh split w enta lesa msh fel best fit doos
+        splitTree(root);
+    }
+    Node* Block = findFreeBlock(root->left,size); //walahy ehna nas yemeen bas seketna shemal
+    if(Block == NULL){
+        Node* Block = findFreeBlock(root->right,size); //walahy law el shemal magatsh nedkhol yemeen
     }
 
-    // Print the tree starting from the right subtree to ensure the root is at the top
-    printTree(root->right, level + 1, 0);
+}
 
-    // Print the current node with arrows connecting to parent-child
+
+Node* allocateMemory(Node* root, int size) {
+    Node*Block = findFreeBlock(root,size); //call el function el fo2 washoof hatraga3 eh 
+
+    if (Block == NULL) {
+        printf("No suitable block found for allocation for block with size %d\n",size);
+        return NULL;
+    }
+    
+    Block->allocated = 1;  
+    printf("Memory Allocation Successful\n");
+    return Block;
+}
+
+void printTree(Node* root, int level) {
+
+    if (root == NULL) return;
+
+    // Print the right child first (to display the tree from top-down)
+    printTree(root->right, level + 1);
+
+    // Print the current node with proper indentation
     for (int i = 0; i < level; i++) {
-        printf("       ");  // Indentation for the current level
+        printf("    ");  // Indentation for the current level
     }
 
-    if (level > 0) {
-        if (isLeft) {
-            printf("/-- ");
-        } else {
-            printf("\\-- ");
-        }
-    }
-
-    // Print the current node information
+    // Print the node's size and allocation status
     printf("[Size: %d, Allocated: %d]\n", root->size, root->allocated);
 
-    // Print the left subtree
-    printTree(root->left, level + 1, 1);
+    // Print the left child
+    printTree(root->left, level + 1);
 }
-
-
 //memory allocation
 
 // struct BuddyBlock {

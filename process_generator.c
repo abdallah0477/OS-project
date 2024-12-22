@@ -16,7 +16,7 @@ struct Process *processes;
 int* shmaddrinfo;
 
 int main(int argc, char *argv[])
-{
+{   
     union Semun semun;
     
     //Message Queue for Processes
