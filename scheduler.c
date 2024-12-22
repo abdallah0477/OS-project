@@ -207,11 +207,12 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
     struct Process curr;
     curr.id = -1; // Initialize to indicate no current process
     struct msgbuff processmsg;
-    Node* root = initBuddySystem();
-    struct WaitQueue* queue = {0};
-    
-        
-    while (process_count <= N || !isEmpty(pq) || curr.state == 1 || !isEmptyWaitQueue(queue))
+    Node*root = initBuddySystem();
+    struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
+    Queue->size = 0; 
+
+
+    while (process_count <= N || !isEmpty(pq) || curr.state == 1)
     {
         if (!isEmpty(pq) && curr.id == -1)
         {
@@ -232,24 +233,17 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
 
         if (remaining_time == 0 && curr.id != -1)
         {
-            //lesa 3ayez a check el wait queue had yefakarny bokra
             curr.state = 0;
             finish(&curr);
             freeMemory(curr.Block);
-            if(!isEmptyWaitQueue(queue)){
-                struct Process p = peekWaitQueue(queue);
-                Node *Block;
-                if(Block == NULL){
-                    printf("Not enough memory available, process stays in waiting queue");
-                
-                }
-                else{
-                    allocateMemory(Block,processmsg.process.MEMSIZE);
-                    processmsg.process.Block = Block;
-                    enqueue(pq,processmsg.process,0);
+            if(!isEmptyWaitQueue(Queue)){
+                struct Process head = peekWaitQueue(Queue);
+                Node* Check = allocateMemory(root,head.MEMSIZE);
+                if(Check != NULL){
+                    head = dequeueWaitQueue(Queue);
+                    enqueue(pq,head,0);
                 }
             }
-            //3ayzeeen nezawed el memorylog file too
 
             if (!isEmpty(pq))
             {
@@ -263,8 +257,13 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
             }
         }
 
+        //
         while (true)
         {
+            if (process_count >= N && isEmpty(pq) && curr.id == -1)
+                {
+                    break;
+                }
             if (msgrcv(ProcessQueue, &processmsg, N * sizeof(struct Process), 1, IPC_NOWAIT) == -1)
             {
                 if (errno == ENOMSG)
@@ -277,20 +276,18 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
                     exit(1);
                 }
             }
-        //memorylog
-        //0 to 256 processA
-        
-            printf("Scheduler Received Process with pid %d and memsize %d\n", processmsg.process.id,processmsg.process.MEMSIZE);
             Node* Block = allocateMemory(root,processmsg.process.MEMSIZE);
             if(Block == NULL){
-                printf("Not enough memory available, process moved to waiting queue");
-                enqueueWaitQueue(queue,processmsg.process);
-                printWaitQueue(queue);
+                enqueueWaitQueue(Queue,processmsg.process);
+                printf("Added Process to Wait Queue\n");
+                printWaitQueue(Queue);
             }
             else{
-                enqueue(pq,processmsg.process,0);
-            }
-            process_count++;
+            processmsg.process.Block = Block;
+            enqueue(pq, processmsg.process, 0);
+            printPriQueue(pq);
+            printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
+            process_count++;}
         }
 
         if (process_count >= N && isEmpty(pq) && curr.id == -1)
