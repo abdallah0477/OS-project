@@ -91,33 +91,27 @@ int main(int argc, char *argv[])
         printf("Starting sjf\n");
         SJF(N, ProcessQueue, &pq);
     }
-    // }
-    // if (Scheduling_Algorithm == 2)
-    // {
-    //     printf("Starting hpf\n");
-    //     hpf(N, ProcessQueue, &pq);
-    // }
-    // if (Scheduling_Algorithm == 3)
-    // {
-    //     printf("Starting RR\n");
-    //     RoundRobin(ProcessQueue, N, Quantum);
-    //     printf("i am done");
-    // }
-    // if (Scheduling_Algorithm == 4)
-    // {
-    //     printf("Starting multi level feedback\n");
-    //     multifeedback(ProcessQueue, N, Quantum);
-    // }
+    
+    if (Scheduling_Algorithm == 2)
+    {
+        printf("Starting hpf\n");
+        hpf(N, ProcessQueue, &pq);
+    }
+    if (Scheduling_Algorithm == 3)
+    {
+        printf("Starting RR\n");
+        RoundRobin(ProcessQueue, N, Quantum);
+        printf("i am done");
+    }
+    if (Scheduling_Algorithm == 4)
+    {
+        printf("Starting multi level feedback\n");
+        multifeedback(ProcessQueue, N, Quantum);
+    }
     fclose(out_log);
     printPerf(N);
     printPriQueue(&pq);
 
-    // printf("Processes:\n");
-    // for (int i = 0; i < process_count; i++) {
-    //     printf("[%d]""ID: %d, Arrival: %d, Runtime: %d, Priority: %d\n",
-    //            i,processes[i].id, processes[i].arrival_time,
-    //            processes[i].running_time, processes[i].priority);
-    // }
 
     if (msgctl(ProcessQueue, IPC_RMID, NULL) == -1)
     {
@@ -483,6 +477,8 @@ void multifeedback(int ProcessQueueid, int n, int q)
                 printf("process with id %d entered waiting queue\n",processmsg.process.id);
             }
             else{
+                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+               getClk(), temp->size, processmsg.process.id,temp->start_address, temp->end_address);
                enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
                processmsg.process.Block=temp;
                processmsg.process.state=0;
@@ -538,36 +534,64 @@ void multifeedback(int ProcessQueueid, int n, int q)
             { // Time the process will run
                 while (msgrcv(ProcessQueueid, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1)
                 {
-                    printf("Process with ID %d and priority %d arrived\n", processmsg.process.id, processmsg.process.priority);
-                    enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
-
-                    if (processmsg.process.priority < current_level)
+                    
+                    printf("process with id %d priority %d arrived\n", processmsg.process.id, processmsg.process.priority);
+                    Node *temp = allocateMemory(root, processmsg.process.MEMSIZE);
+                    if (temp == NULL)
                     {
-                        higher_process = 1;
-                        higher_level = processmsg.process.priority;
+                        enqueueWaitQueue(Queue, processmsg.process);
+                        printf("process with id %d entered waiting queue\n", processmsg.process.id);
+                    }
+                    else
+                    {
+                        fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                        getClk(), temp->size, processmsg.process.id, temp->start_address, temp->end_address);
+                        enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
+                        processmsg.process.Block = temp;
+                        processmsg.process.state = 0;
+                        printf("process with id %d entered ready queue\n", processmsg.process.id);
+
+                        if (processmsg.process.priority < current_level)
+                        {
+                            higher_process = 1;
+                            higher_level = processmsg.process.priority;
+                        }
                     }
                 }
             }
-
-            current_process.remaining_time -= exec_time;
-            if (current_process.remaining_time > 0)
-            {
-                Pause(&current_process);
-                if(current_level<10){
-                    enqueuecircular(&mlfq[current_level + 1], current_process);
-                }
-                else{
+                current_process.remaining_time -= exec_time;
+                if (current_process.remaining_time > 0)
+                {
+                    Pause(&current_process);
+                    if (current_level < 10)
+                    {
+                        enqueuecircular(&mlfq[current_level + 1], current_process);
+                    }
+                    else{
                     enqueuecircular(&mlfq[current_process.priority], current_process);
                 }
                 current_process.id=-1;
-            }
+                }
             else
             {
                 finish(&current_process);
                 freeMemory(current_process.Block);
+                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
+                getClk(), current_process.Block->size,current_process.id ,current_process.Block->start_address, current_process.Block->end_address);
                 process_count++;
                 current_process.state=2;
                 current_process.id=-1;
+                if(!isEmptyWaitQueue(Queue)){
+                struct Process head = peekWaitQueue(Queue);
+                Node* Check = allocateMemory(root,head.MEMSIZE);
+                if (Check != NULL)
+                {
+                    head = dequeueWaitQueue(Queue);
+                    enqueuecircular(&mlfq[head.priority],head);
+                    fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                     getClk(), head.Block->size,head.id, head.Block->start_address, head.Block->end_address);
+                }
+            }
             }
 
            if(process_count==n){
@@ -592,9 +616,8 @@ void multifeedback(int ProcessQueueid, int n, int q)
                 higher_level = -1;
                 higher_process = 0;
             }
-
-        }
-
+            
+    }
     }
 }
 //round robin
@@ -655,6 +678,7 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
         }
       
         p.remaining_time -= executiontime;
+
         if (p.remaining_time > 0) {
             Pause(&p); 
             //check again before enqueueing for newly arrived processes
