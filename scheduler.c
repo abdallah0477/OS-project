@@ -654,21 +654,37 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
         //signal(SIGUSR1, process_finished_handler);
         int executiontime;
         struct msgbuff processmsg;
+        Node*root = initBuddySystem();
+        struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
+        Queue->size = 0; 
         int timeslot=getClk();
         if(Quantum<=0){
             Quantum=1;
         }
+        printf("RR Scheduler started with fixed quantum %d.\n", Quantum);
      while (true) {
     
     while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
         if (processmsg.process.id != -1) { 
-            enqueuecircular(&readyprocesses, processmsg.process);
+            
+            printf("process with id %d  arrived\n", processmsg.process.id);
+            Node *temp=allocateMemory(root,processmsg.process.MEMSIZE);
+            if(temp==NULL){
+                enqueueWaitQueue(Queue,processmsg.process);
+                printf("process with id %d entered waiting queue\n",processmsg.process.id);
+                printWaitQueue(Queue);
+            }
+            else{
+                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+               getClk(), temp->size, processmsg.process.id,temp->start_address, temp->end_address);
+               processmsg.process.Block=temp;
+               enqueuecircular(&readyprocesses, processmsg.process);
+               printf("process with id %d entered ready queue\n",processmsg.process.id);
+            }
             process_count++;
         }
     }    
-
-    
-    if (!still_sending && isEmptyCircular(&readyprocesses)) {
+ if (!still_sending && isEmptyCircular(&readyprocesses) && isEmptyWaitQueue(Queue)) {
         return;
     }
 
@@ -696,11 +712,24 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
             sleep(1);
              while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
         if (processmsg.process.id != -1) { 
-            enqueuecircular(&readyprocesses, processmsg.process);
+               printf("process with id %d  arrived\n", processmsg.process.id);
+            Node *temp=allocateMemory(root,processmsg.process.MEMSIZE);
+            if(temp==NULL){
+                enqueueWaitQueue(Queue,processmsg.process);
+                printf("process with id %d entered waiting queue\n",processmsg.process.id);
+                printWaitQueue(Queue);
+            }
+            else{
+                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+               getClk(), temp->size, processmsg.process.id,temp->start_address, temp->end_address);
+               enqueuecircular(&readyprocesses, processmsg.process);
+               processmsg.process.Block=temp;
+               printf("process with id %d entered ready queue\n",processmsg.process.id);
+            }
             process_count++;
         }
     } 
-        }
+}
       
         p.remaining_time -= executiontime;
 
@@ -709,21 +738,49 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
             //check again before enqueueing for newly arrived processes
                    while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
         if (processmsg.process.id != -1) { 
-            enqueuecircular(&readyprocesses, processmsg.process);
+              printf("process with id %d  arrived\n", processmsg.process.id);
+            Node *temp=allocateMemory(root,processmsg.process.MEMSIZE);
+            if(temp==NULL){
+                enqueueWaitQueue(Queue,processmsg.process);
+                printf("process with id %d entered waiting queue\n",processmsg.process.id);
+                printWaitQueue(Queue);
+            }
+            else{
+                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+               getClk(), temp->size, processmsg.process.id,temp->start_address, temp->end_address);
+               enqueuecircular(&readyprocesses, processmsg.process);
+               processmsg.process.Block=temp;
+               printf("process with id %d entered ready queue\n",processmsg.process.id);
+            }
             process_count++;
         }
     } 
         //re_enqueue 
-            enqueuecircular(&readyprocesses, p);
+         enqueuecircular(&readyprocesses, p);
         } else {
             finish(&p); 
-        }
-    }
+             freeMemory(p.Block);
+                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
+                getClk(), p.Block->size,p.id ,p.Block->start_address, p.Block->end_address);
+                process_count++;
+                if(!isEmptyWaitQueue(Queue)){
+                struct Process head = peekWaitQueue(Queue);
+                Node* Check = allocateMemory(root,head.MEMSIZE);
+                if (Check != NULL)
+                {
+                    head = dequeueWaitQueue(Queue);
+                    enqueuecircular(&readyprocesses,head);
+                    fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                     getClk(), head.Block->size,head.id, head.Block->start_address, head.Block->end_address);
+                }
+            }
+            }
     
-    if(process_count == N  && isEmptyCircular(&readyprocesses)){
+    if(process_count == N  && isEmptyCircular(&readyprocesses) && isEmptyWaitQueue(Queue)){
         break;
     }
     }
+}
 }
 
 void printPerf(int N){
