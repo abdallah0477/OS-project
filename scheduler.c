@@ -340,7 +340,7 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq)
         }
     }
 }
-// // //hpf
+//hpf
 void hpf(int N, int ProcessQueue, struct PriQueue *pq) 
 {
     
@@ -351,6 +351,9 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
     curr.id = -1; // Initialize to indicate no current process
     curr.run_before = 0; // Flag to track if the process has run before
     struct msgbuff processmsg;
+    Node* root = initBuddySystem(); // Initialize memory management system
+    struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
+    Queue->size = 0;
 
     while (process_count < N || !isEmpty(pq) || curr.id != -1)
     {
@@ -385,14 +388,26 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
                 printf("Process with id %d finished\n", curr.id);
                 finish(&curr);
                 curr.state=4; //finished
-                curr.id = -1; // Reset current process
-
+                freeMemory(curr.Block); // Free allocated memory
+                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
+                    getClk(), curr.Block->size, curr.id, curr.Block->start_address, curr.Block->end_address);
+                 if (!isEmptyWaitQueue(Queue)) {
+                    struct Process head = peekWaitQueue(Queue);
+                    Node* Check = allocateMemory(root, head.MEMSIZE);
+                    if (Check != NULL) {
+                        head = dequeueWaitQueue(Queue);
+                        enqueue(pq, head, 1); // Add to priority queue
+                        fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                                getClk(), head.Block->size, head.id, head.Block->start_address, head.Block->end_address);
+                     }
+                 }
                 if (!isEmpty(pq))
                 {
                     curr = dequeue(pq);
                 }
                 else
                 {
+                     curr.id = -1; // Reset current process
                     printf("Scheduler idle, no current process\n");
                 }
             }
@@ -415,8 +430,18 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
             }
 
             printf("Scheduler received process with id %d\n", processmsg.process.id);
-            enqueue(pq, processmsg.process, 1); // Enqueue new process
-            process_count++;
+            Node* Block = allocateMemory(root, processmsg.process.MEMSIZE);
+            if (Block == NULL) {
+                enqueueWaitQueue(Queue, processmsg.process); // Add to wait queue if memory is unavailable
+                printf("Added process with id=%d to wait queue\n",processmsg.process.id);
+                printWaitQueue(Queue);
+            } else {
+                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                        getClk(), Block->size, processmsg.process.id, Block->start_address, Block->end_address);
+                processmsg.process.Block = Block;
+                enqueue(pq, processmsg.process, 1); // Add to priority queue
+            }
+             process_count++;
         }
 
         // Check for preemption
