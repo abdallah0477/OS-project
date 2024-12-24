@@ -219,7 +219,7 @@ void finish(struct Process *process)
     total_wta += WTA;
     total_run += process->running_time;
     // fill in memory deallocation
-    kill(process->p_pid, SIGCONT);
+    kill(process->p_pid, SIGKILL);
 }
 
 // pause function definition
@@ -398,6 +398,48 @@ if (semctl(semsyncid2, 0, IPC_RMID) == -1) {
 //hpf
 void hpf(int N, int ProcessQueue, struct PriQueue *pq) 
 {
+        union Semun semun;
+    // First semaphore (original)
+    key_t semcsync = ftok("process_generator", 110);
+    if (semcsync == -1) {
+        perror("ftok failed");
+        exit(1);
+    }
+
+    // Create or access first semaphore
+    int semsyncid = semget(semcsync, 1, IPC_CREAT | 0666);
+    if (semsyncid == -1) {
+        perror("semget failed");
+        exit(1);
+    }
+
+    // Initialize the first semaphore to 0
+    semun.val = 0;
+    if (semctl(semsyncid, 0, SETVAL, semun) == -1) {
+        perror("semctl failed during initialization");
+        exit(1);
+    }
+
+    // Second semaphore (new)
+    key_t semcsync2 = ftok("process_generator", 111);  // Different project ID
+    if (semcsync2 == -1) {
+        perror("ftok failed for second semaphore");
+        exit(1);
+    }
+
+    // Create or access second semaphore
+    int semsyncid2 = semget(semcsync2, 1, IPC_CREAT | 0666);
+    if (semsyncid2 == -1) {
+        perror("semget failed for second semaphore");
+        exit(1);
+    }
+    
+    // Initialize the second semaphore to 0
+    semun.val = 0;
+    if (semctl(semsyncid2, 0, SETVAL, semun) == -1) {
+        perror("semctl failed during initialization of second semaphore");
+        exit(1);
+    }
     
     //state=1 started state=2 resumed state=3 stopped state=4 finished 
     int process_count = 0;
@@ -512,10 +554,63 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
             }
         }
     }
+    
+if (semctl(semsyncid, 0, IPC_RMID) == -1) {
+    perror("Failed to destroy the first semaphore");
+    exit(1);
+    } 
+
+
+if (semctl(semsyncid2, 0, IPC_RMID) == -1) {
+    perror("Failed to destroy the second semaphore");
+    exit(1);
+} 
 }
 //multilevel feedback queue  
 void multifeedback(int ProcessQueueid, int n, int q)
 {
+        union Semun semun;
+    // First semaphore (original)
+    key_t semcsync = ftok("process_generator", 110);
+    if (semcsync == -1) {
+        perror("ftok failed");
+        exit(1);
+    }
+
+    // Create or access first semaphore
+    int semsyncid = semget(semcsync, 1, IPC_CREAT | 0666);
+    if (semsyncid == -1) {
+        perror("semget failed");
+        exit(1);
+    }
+
+    // Initialize the first semaphore to 0
+    semun.val = 0;
+    if (semctl(semsyncid, 0, SETVAL, semun) == -1) {
+        perror("semctl failed during initialization");
+        exit(1);
+    }
+
+    // Second semaphore (new)
+    key_t semcsync2 = ftok("process_generator", 111);  // Different project ID
+    if (semcsync2 == -1) {
+        perror("ftok failed for second semaphore");
+        exit(1);
+    }
+
+    // Create or access second semaphore
+    int semsyncid2 = semget(semcsync2, 1, IPC_CREAT | 0666);
+    if (semsyncid2 == -1) {
+        perror("semget failed for second semaphore");
+        exit(1);
+    }
+    
+    // Initialize the second semaphore to 0
+    semun.val = 0;
+    if (semctl(semsyncid2, 0, SETVAL, semun) == -1) {
+        perror("semctl failed during initialization of second semaphore");
+        exit(1);
+    }
     struct circularqueue mlfq[11];
     for (int i = 0; i < 11; i++)
     { // Initialize all queues
@@ -714,28 +809,82 @@ void multifeedback(int ProcessQueueid, int n, int q)
             
     }
     }
+    
+if (semctl(semsyncid, 0, IPC_RMID) == -1) {
+    perror("Failed to destroy the first semaphore");
+    exit(1);
+    } 
+
+
+if (semctl(semsyncid2, 0, IPC_RMID) == -1) {
+    perror("Failed to destroy the second semaphore");
+    exit(1);
+} 
 }
 //round robin
 void RoundRobin(int ProcessQueue,int N,int Quantum){
 
-        struct circularqueue readyprocesses;
-        int process_count=0;
-        int processes_done=0;
-        struct Process p;
-        p.run_before=false;
-        initialq(&readyprocesses);
-        //signal(SIGUSR1, process_finished_handler);
-        int executiontime;
-        p.id=-1;
-        struct msgbuff processmsg;
-        Node*root = initBuddySystem();
-        struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
-        Queue->size = 0; 
-        int timeslot=getClk();
-        if(Quantum<=0){
-            Quantum=1;
-        }
-        printf("RR Scheduler started with fixed quantum %d.\n", Quantum);
+        union Semun semun;
+    // First semaphore (original)
+    key_t semcsync = ftok("process_generator", 110);
+    if (semcsync == -1) {
+        perror("ftok failed");
+        exit(1);
+    }
+
+    // Create or access first semaphore
+    int semsyncid = semget(semcsync, 1, IPC_CREAT | 0666);
+    if (semsyncid == -1) {
+        perror("semget failed");
+        exit(1);
+    }
+
+    // Initialize the first semaphore to 0
+    semun.val = 0;
+    if (semctl(semsyncid, 0, SETVAL, semun) == -1) {
+        perror("semctl failed during initialization");
+        exit(1);
+    }
+
+    // Second semaphore (new)
+    key_t semcsync2 = ftok("process_generator", 111);  // Different project ID
+    if (semcsync2 == -1) {
+        perror("ftok failed for second semaphore");
+        exit(1);
+    }
+
+    // Create or access second semaphore
+    int semsyncid2 = semget(semcsync2, 1, IPC_CREAT | 0666);
+    if (semsyncid2 == -1) {
+        perror("semget failed for second semaphore");
+        exit(1);
+    }
+    
+    // Initialize the second semaphore to 0
+    semun.val = 0;
+    if (semctl(semsyncid2, 0, SETVAL, semun) == -1) {
+        perror("semctl failed during initialization of second semaphore");
+        exit(1);
+    }
+
+    struct circularqueue readyprocesses;
+    int process_count=0;
+    int processes_done=0;
+    struct Process p;
+    p.run_before=false;
+    initialq(&readyprocesses);
+    //signal(SIGUSR1, process_finished_handler);
+    int executiontime;
+    p.id=-1;
+    struct msgbuff processmsg;
+    Node*root = initBuddySystem();
+    struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
+    Queue->size = 0; 
+    int timeslot=getClk();
+    if(Quantum<=0){
+        Quantum=1;
+    }
+    printf("RR Scheduler started with fixed quantum %d.\n", Quantum);
      while (true) {
     
     while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
@@ -861,6 +1010,17 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
         break;
     }
     }
+    
+if (semctl(semsyncid, 0, IPC_RMID) == -1) {
+    perror("Failed to destroy the first semaphore");
+    exit(1);
+    } 
+
+
+if (semctl(semsyncid2, 0, IPC_RMID) == -1) {
+    perror("Failed to destroy the second semaphore");
+    exit(1);
+} 
 }
 void printPerf(int N){
     avg_wait = total_wait / (float)N;
