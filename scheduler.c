@@ -139,30 +139,37 @@ Node* allocateMemory(Node* root, int size) {
 }
 
 //Deallocate function
+
 void freeMemory(Node* block) {
-    if (block == NULL) return;
+    if (block == NULL || block->allocated==0) return;
 
     block->allocated = 0;
     printf("Freed block of size %d\n", block->size);
 
-
     if (block->parent) {
-        Node* buddy; //bashoof right node wala left node;
+        Node* buddy;
         if (block == block->parent->left) {
             buddy = block->parent->right;
         } else {
             buddy = block->parent->left;
         }
 
-        if (buddy!=NULL && buddy->allocated == 0) {
+        if (buddy != NULL && buddy->allocated == 0) {
             // Merge the blocks
             printf("Merging block of size %d with buddy of size %d\n", block->size, buddy->size);
             block->parent->left = NULL;
-            buddy->parent->right = NULL;
-            freeMemory(block->parent);  //walahy recursively call func to clear unoccupied nodes
+            block->parent->right = NULL;
+            free(buddy); // Free the buddy node
+            freeMemory(block->parent);  // Recursively call to merge with parent
+        }
+    } else {
+        // If the block is the root node, ensure it's not freed unless it's the only block
+        if (block->left == NULL && block->right == NULL) {
+            printf("Root block is the only block, not merging further\n");
         }
     }
 }
+
 // start function definition
 void start(struct Process *process)
 {
@@ -236,109 +243,145 @@ void resume(struct Process *process)
            getClk(), process->id, process->arrival_time, process->running_time, process->remaining_time, process->wait_time);
 }
 //sjf
-void SJF(int N, int ProcessQueue, struct PriQueue *pq)
-{
+void SJF(int N, int ProcessQueue, struct PriQueue *pq) {
+    union Semun semun;
+    // First semaphore (original)
+    key_t semcsync = ftok("process_generator", 110);
+    if (semcsync == -1) {
+        perror("ftok failed");
+        exit(1);
+    }
+
+    // Create or access first semaphore
+    int semsyncid = semget(semcsync, 1, IPC_CREAT | 0666);
+    if (semsyncid == -1) {
+        perror("semget failed");
+        exit(1);
+    }
+
+    // Initialize the first semaphore to 0
+    semun.val = 0;
+    if (semctl(semsyncid, 0, SETVAL, semun) == -1) {
+        perror("semctl failed during initialization");
+        exit(1);
+    }
+
+    // Second semaphore (new)
+    key_t semcsync2 = ftok("process_generator", 111);  // Different project ID
+    if (semcsync2 == -1) {
+        perror("ftok failed for second semaphore");
+        exit(1);
+    }
+
+    // Create or access second semaphore
+    int semsyncid2 = semget(semcsync2, 1, IPC_CREAT | 0666);
+    if (semsyncid2 == -1) {
+        perror("semget failed for second semaphore");
+        exit(1);
+    }
+    
+    // Initialize the second semaphore to 0
+    semun.val = 0;
+    if (semctl(semsyncid2, 0, SETVAL, semun) == -1) {
+        perror("semctl failed during initialization of second semaphore");
+        exit(1);
+    }
+
     int process_count = 0;
     int remaining_time = 0;
     struct Process curr;
     curr.id = -1; // Initialize to indicate no current process
     struct msgbuff processmsg;
-    Node*root = initBuddySystem();
-    struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
-    Queue->size = 0; 
+    Node *root = initBuddySystem();
+    struct WaitQueue *Queue = malloc(sizeof(struct WaitQueue));
+    Queue->size = 0;
 
-
-    while (process_count <= N || !isEmpty(pq) || curr.state == 1)
-    {
-        if (!isEmpty(pq) && curr.id == -1)
-        {
+    while (process_count < N || !isEmpty(pq) || curr.id != -1) {
+        if (!isEmpty(pq) && curr.id == -1) {
             curr = dequeue(pq);
             remaining_time = curr.running_time;
         }
 
-        if (curr.id != -1)
-        {
-            if (curr.state == 0)
-            {
+        if (curr.id != -1) {
+            up(semsyncid2);
+            if (curr.state == 0) {
                 curr.state = 1;
                 start(&curr);
+                curr.Block =allocateMemory(root,curr.MEMSIZE);
+                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                        getClk(), curr.Block->size, curr.id, curr.Block->start_address, curr.Block->end_address); 
             }
-            sleep(1);
+
+            down(semsyncid); 
             remaining_time--;
+            
         }
 
-        if (remaining_time == 0 && curr.id != -1)
-        {
+        if (remaining_time == 0 && curr.id != -1) {
             curr.state = 0;
-            finish(&curr);
+            printPriQueue(pq);
+            fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
+                    getClk(), curr.Block->size, curr.id, curr.Block->start_address, curr.Block->end_address);
             freeMemory(curr.Block);
-                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
-             getClk(), curr.Block->size,curr.id ,curr.Block->start_address, curr.Block->end_address);
-
-            if(!isEmptyWaitQueue(Queue)){
+            finish(&curr);
+            // Check the wait queue
+            if (!isEmptyWaitQueue(Queue)) {
                 struct Process head = peekWaitQueue(Queue);
-                Node* Check = allocateMemory(root,head.MEMSIZE);
-                if (Check != NULL)
-                {
+                PrintProcess(head);
+                printf("%d\n",head.MEMSIZE);
+                Node *Check = findFreeBlock(root, head.MEMSIZE);
+                if (Check != NULL) {
                     head = dequeueWaitQueue(Queue);
+                    PrintProcess(head);
                     enqueue(pq, head, 0);
-                    fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-                     getClk(), head.Block->size,head.id, head.Block->start_address, head.Block->end_address);
                 }
             }
 
-            if (!isEmpty(pq))
-            {
+            // Load the next process
+            if (!isEmpty(pq)) {
                 curr = dequeue(pq);
                 remaining_time = curr.running_time;
-            }
-            else
-            {
+            } else {
                 curr.id = -1;
                 printf("Scheduler idle, no current process\n");
             }
         }
 
-        //
-        while (true)
-        {
-            if (process_count >= N && isEmpty(pq) && curr.id == -1)
-                {
+        // Receive new processes
+        while (true) {
+            if (process_count >= N && isEmpty(pq) && curr.id == -1) {
+                break;
+            }
+
+            if (msgrcv(ProcessQueue, &processmsg, sizeof(struct Process), 1, IPC_NOWAIT) == -1) {
+                if (errno == ENOMSG) {
                     break;
-                }
-            if (msgrcv(ProcessQueue, &processmsg, N * sizeof(struct Process), 1, IPC_NOWAIT) == -1)
-            {
-                if (errno == ENOMSG)
-                {
-                    break;
-                }
-                else
-                {
+                } else {
                     perror("msgrcv failed");
                     exit(1);
                 }
             }
-            Node* Block = allocateMemory(root,processmsg.process.MEMSIZE);
-            if(Block == NULL){
-                enqueueWaitQueue(Queue,processmsg.process);
+
+            Node *Block = findFreeBlock(root, processmsg.process.MEMSIZE);
+            if (Block == NULL) {
+                enqueueWaitQueue(Queue, processmsg.process);
                 printf("Added Process to Wait Queue\n");
                 printWaitQueue(Queue);
+            } 
+            else {
+                enqueue(pq, processmsg.process, 0);
+                printPriQueue(pq);
+                printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
+                process_count++;
             }
-            else{
-            fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-            getClk(), Block->size, processmsg.process.id,Block->start_address, Block->end_address);
-            processmsg.process.Block = Block;
-            enqueue(pq, processmsg.process, 0);
-            printPriQueue(pq);
-            printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
-            process_count++;}
         }
 
-        if (process_count >= N && isEmpty(pq) && curr.id == -1)
-        {
+        if (process_count >= N && isEmpty(pq) && curr.id == -1) {
             break;
         }
+        
     }
+    
 }
 //hpf
 void hpf(int N, int ProcessQueue, struct PriQueue *pq) 
@@ -357,29 +400,31 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
 
     while (process_count < N || !isEmpty(pq) || curr.id != -1)
     {
-        // Check if there's no current process and the queue is not empty
+        // mafish process running w fi process fil priority queue
         if (!isEmpty(pq) && curr.id == -1)
         {
             curr = dequeue(pq);
         }
 
-        // Manage the current process if it's valid
+        // fi process now
         if (curr.id != -1)
         { 
-            if (curr.run_before == 0)
+            if (curr.run_before == 0) //run before bi zero
             {
                 curr.state = 1; //started
                 curr.run_before = 1;
+                curr.Block=allocateMemory(root,curr.MEMSIZE);
+                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                        getClk(), curr.Block->size, curr.id, curr.Block->start_address, curr.Block->end_address);
                 start(&curr);
-                
             }
             else if (curr.state == 3) //if paused, resume the process
             {
                 curr.state = 2; //resumed
                 resume(&curr);
             }
-
-            sleep(1); // Simulate one time unit of execution
+            // Synchronize with the clock using semaphores
+            sleep(1);
             curr.remaining_time--;
 
             // process has finished execution
@@ -388,17 +433,17 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
                 printf("Process with id %d finished\n", curr.id);
                 finish(&curr);
                 curr.state=4; //finished
-                freeMemory(curr.Block); // Free allocated memory
                 fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
                     getClk(), curr.Block->size, curr.id, curr.Block->start_address, curr.Block->end_address);
+                freeMemory(curr.Block);
                  if (!isEmptyWaitQueue(Queue)) {
                     struct Process head = peekWaitQueue(Queue);
-                    Node* Check = allocateMemory(root, head.MEMSIZE);
+                    Node* Check = findFreeBlock(root, head.MEMSIZE);
                     if (Check != NULL) {
                         head = dequeueWaitQueue(Queue);
                         enqueue(pq, head, 1); // Add to priority queue
-                        fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-                                getClk(), head.Block->size, head.id, head.Block->start_address, head.Block->end_address);
+                       // fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                        //        getClk(), head.Block->size, head.id, head.Block->start_address, head.Block->end_address);
                      }
                  }
                 if (!isEmpty(pq))
@@ -408,7 +453,7 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
                 else
                 {
                      curr.id = -1; // Reset current process
-                    printf("Scheduler idle, no current process\n");
+                     printf("Scheduler idle, no current process\n");
                 }
             }
         }
@@ -430,15 +475,12 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
             }
 
             printf("Scheduler received process with id %d\n", processmsg.process.id);
-            Node* Block = allocateMemory(root, processmsg.process.MEMSIZE);
-            if (Block == NULL) {
+            Node* Block1 = findFreeBlock(root, processmsg.process.MEMSIZE);
+            if (Block1 == NULL) {
                 enqueueWaitQueue(Queue, processmsg.process); // Add to wait queue if memory is unavailable
                 printf("Added process with id=%d to wait queue\n",processmsg.process.id);
                 printWaitQueue(Queue);
             } else {
-                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-                        getClk(), Block->size, processmsg.process.id, Block->start_address, Block->end_address);
-                processmsg.process.Block = Block;
                 enqueue(pq, processmsg.process, 1); // Add to priority queue
             }
              process_count++;
@@ -454,12 +496,11 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
                 curr.state = 3; // Paused
                 Pause(&curr);
                 enqueue(pq, curr, 1); // Re-add the paused process to the queue
-
                 curr = dequeue(pq); // Switch to the higher-priority process
             }
         }
     }
-}  
+}
 //multilevel feedback queue  
 void multifeedback(int ProcessQueueid, int n, int q)
 {
@@ -503,9 +544,13 @@ void multifeedback(int ProcessQueueid, int n, int q)
             }
             else{
                 fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-               getClk(), temp->size, processmsg.process.id,temp->start_address, temp->end_address);
-               enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
+               getClk(), processmsg.process.MEMSIZE, processmsg.process.id,temp->start_address, temp->end_address);
+               
                processmsg.process.Block=temp;
+               processmsg.process.start_a=temp->start_address;
+               processmsg.process.end_a=temp->end_address;  
+               enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);           
+
                processmsg.process.state=0;
                printf("process with id %d entered ready queue\n",processmsg.process.id);
             }
@@ -570,9 +615,14 @@ void multifeedback(int ProcessQueueid, int n, int q)
                     else
                     {
                         fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-                        getClk(), temp->size, processmsg.process.id, temp->start_address, temp->end_address);
-                        enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
+                        getClk(),  processmsg.process.MEMSIZE, processmsg.process.id, temp->start_address, temp->end_address);
+
                         processmsg.process.Block = temp;
+                        processmsg.process.start_a=temp->start_address;
+                        processmsg.process.end_a=temp->end_address; 
+                        enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
+                        printf("start adress %d\n",processmsg.process.start_a);
+                        printf("end adress %d\n",processmsg.process.end_a); 
                         processmsg.process.state = 0;
                         printf("process with id %d entered ready queue\n", processmsg.process.id);
 
@@ -599,10 +649,17 @@ void multifeedback(int ProcessQueueid, int n, int q)
                 }
             else
             {
+                
+                Node *temp=current_process.Block;
+                printf("current time %d \n",getClk());
+                printf("size %d\n",current_process.MEMSIZE);
+                printf("id %d\n",current_process.id);
+                printf("start adress %d\n",current_process.start_a);
+                printf("end adress %d\n",current_process.end_a);
                 finish(&current_process);
+
+                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",getClk(), current_process.MEMSIZE,current_process.id ,current_process.Block->start_address, current_process.Block->end_address);
                 freeMemory(current_process.Block);
-                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
-                getClk(), current_process.Block->size,current_process.id ,current_process.Block->start_address, current_process.Block->end_address);
                 process_count++;
                 current_process.state=2;
                 current_process.id=-1;
@@ -612,11 +669,12 @@ void multifeedback(int ProcessQueueid, int n, int q)
                 if (Check != NULL)
                 {
                     head = dequeueWaitQueue(Queue);
+                    head.Block=Check;
                     enqueuecircular(&mlfq[head.priority],head);
                     fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
                      getClk(), head.Block->size,head.id, head.Block->start_address, head.Block->end_address);
                 }
-            }
+                }
             }
 
            if(process_count==n){
@@ -647,12 +705,16 @@ void multifeedback(int ProcessQueueid, int n, int q)
 }
 //round robin
 void RoundRobin(int ProcessQueue,int N,int Quantum){
+
         struct circularqueue readyprocesses;
-        int process_count;
+        int process_count=0;
+        int processes_done=0;
         struct Process p;
+        p.run_before=false;
         initialq(&readyprocesses);
         //signal(SIGUSR1, process_finished_handler);
         int executiontime;
+        p.id=-1;
         struct msgbuff processmsg;
         Node*root = initBuddySystem();
         struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
@@ -675,10 +737,10 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
                 printWaitQueue(Queue);
             }
             else{
-                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                 processmsg.process.Block=temp;
+                  enqueuecircular(&readyprocesses, processmsg.process);
+               fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
                getClk(), temp->size, processmsg.process.id,temp->start_address, temp->end_address);
-               processmsg.process.Block=temp;
-               enqueuecircular(&readyprocesses, processmsg.process);
                printf("process with id %d entered ready queue\n",processmsg.process.id);
             }
             process_count++;
@@ -708,11 +770,11 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
         }
 
         int end = getClk() + executiontime;
-        while(getClk()<end){
-            sleep(1);
-             while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
+     while(getClk()<end){
+         sleep(1);
+        while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
         if (processmsg.process.id != -1) { 
-               printf("process with id %d  arrived\n", processmsg.process.id);
+          printf("process with id %d  arrived\n", processmsg.process.id);
             Node *temp=allocateMemory(root,processmsg.process.MEMSIZE);
             if(temp==NULL){
                 enqueueWaitQueue(Queue,processmsg.process);
@@ -720,10 +782,10 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
                 printWaitQueue(Queue);
             }
             else{
-                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                 processmsg.process.Block=temp;
+                 enqueuecircular(&readyprocesses, processmsg.process);
+               fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
                getClk(), temp->size, processmsg.process.id,temp->start_address, temp->end_address);
-               enqueuecircular(&readyprocesses, processmsg.process);
-               processmsg.process.Block=temp;
                printf("process with id %d entered ready queue\n",processmsg.process.id);
             }
             process_count++;
@@ -736,9 +798,9 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
         if (p.remaining_time > 0) {
             Pause(&p); 
             //check again before enqueueing for newly arrived processes
-                   while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
+            while (msgrcv(ProcessQueue, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1) {
         if (processmsg.process.id != -1) { 
-              printf("process with id %d  arrived\n", processmsg.process.id);
+             printf("process with id %d  arrived\n", processmsg.process.id);
             Node *temp=allocateMemory(root,processmsg.process.MEMSIZE);
             if(temp==NULL){
                 enqueueWaitQueue(Queue,processmsg.process);
@@ -746,43 +808,48 @@ void RoundRobin(int ProcessQueue,int N,int Quantum){
                 printWaitQueue(Queue);
             }
             else{
-                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                 processmsg.process.Block=temp;
+                  enqueuecircular(&readyprocesses, processmsg.process);
+               fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
                getClk(), temp->size, processmsg.process.id,temp->start_address, temp->end_address);
-               enqueuecircular(&readyprocesses, processmsg.process);
-               processmsg.process.Block=temp;
                printf("process with id %d entered ready queue\n",processmsg.process.id);
             }
             process_count++;
         }
     } 
         //re_enqueue 
-         enqueuecircular(&readyprocesses, p);
+     enqueuecircular(&readyprocesses, p);
         } else {
+            printf("Process with id %d finished\n", p.id);
             finish(&p); 
+            processes_done++;
+            if(processes_done==process_count && processes_done!=0){
+                break;
+            }
+            fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",getClk(), p.Block->size, p.id, p.Block->start_address, p.Block->end_address);
              freeMemory(p.Block);
-                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",
-                getClk(), p.Block->size,p.id ,p.Block->start_address, p.Block->end_address);
-                process_count++;
-                if(!isEmptyWaitQueue(Queue)){
-                struct Process head = peekWaitQueue(Queue);
-                Node* Check = allocateMemory(root,head.MEMSIZE);
-                if (Check != NULL)
-                {
-                    head = dequeueWaitQueue(Queue);
-                    enqueuecircular(&readyprocesses,head);
-                    fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-                     getClk(), head.Block->size,head.id, head.Block->start_address, head.Block->end_address);
-                }
+                 if (!isEmptyWaitQueue(Queue)) {
+                    struct Process head = peekWaitQueue(Queue);
+                    Node* Check = allocateMemory(root, head.MEMSIZE);
+                    if (Check != NULL) {
+                        head = dequeueWaitQueue(Queue);
+                         enqueuecircular(&readyprocesses,head);
+                         head.Block=Check;
+                        fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
+                                getClk(), head.Block->size, head.id, head.Block->start_address, head.Block->end_address);
+                     }
+                 }
+
             }
+    }
+     if(processes_done==process_count && processes_done!=0){
+                break;
             }
-    
     if(process_count == N  && isEmptyCircular(&readyprocesses) && isEmptyWaitQueue(Queue)){
         break;
     }
     }
 }
-}
-
 void printPerf(int N){
     avg_wait = total_wait / (float)N;
     float CPU_UT = ((float)total_run / (float)(getClk())) * 100.0;
