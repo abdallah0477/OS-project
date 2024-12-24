@@ -59,6 +59,8 @@ while (remainingtime > 0)
         temp = current_time;
     }
 }
+
+        
     shmdt(shmaddr);
     destroyClk(false);
     printf("Process exited\n");

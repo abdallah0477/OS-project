@@ -367,6 +367,7 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq) {
                 enqueueWaitQueue(Queue, processmsg.process);
                 printf("Added Process to Wait Queue\n");
                 printWaitQueue(Queue);
+                process_count++;
             } 
             else {
                 enqueue(pq, processmsg.process, 0);
@@ -381,6 +382,17 @@ void SJF(int N, int ProcessQueue, struct PriQueue *pq) {
         }
         
     }
+
+if (semctl(semsyncid, 0, IPC_RMID) == -1) {
+    perror("Failed to destroy the first semaphore");
+    exit(1);
+    } 
+
+
+if (semctl(semsyncid2, 0, IPC_RMID) == -1) {
+    perror("Failed to destroy the second semaphore");
+    exit(1);
+} 
     
 }
 //hpf
