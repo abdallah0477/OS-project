@@ -30,7 +30,7 @@ FILE *out_perf;
 FILE *out_memory;
 
 void multifeedback(int MessageQueue, int n, int q);
-void SJF(int N, int MessageQueue, struct PriQueue *pq);
+void HPF(int N, int MessageQueue, struct PriQueue *pq);
 void RoundRobin(int MessageQueue, int N, int Quantum);
 void hpf(int MessageQueue, int N, struct PriQueue *pq);
 struct Process *processes;
@@ -88,26 +88,22 @@ int main(int argc, char *argv[])
 
     if (Scheduling_Algorithm == 1)
     {
-        printf("Starting sjf\n");
-        SJF(N, ProcessQueue, &pq);
+        printf("Starting HPF\n");
+        HPF(N, ProcessQueue, &pq);
     }
     
-    if (Scheduling_Algorithm == 2)
-    {
-        printf("Starting hpf\n");
-        hpf(N, ProcessQueue, &pq);
-    }
+    // if (Scheduling_Algorithm == 2)
+    // {
+    //     printf("Starting hpf\n");
+    //     hpf(N, ProcessQueue, &pq);
+    // }
     if (Scheduling_Algorithm == 3)
     {
         printf("Starting RR\n");
         RoundRobin(ProcessQueue, N, Quantum);
         printf("i am done");
     }
-    if (Scheduling_Algorithm == 4)
-    {
-        printf("Starting multi level feedback\n");
-        multifeedback(ProcessQueue, N, Quantum);
-    }
+   
     fclose(out_log);
     printPerf(N);
     printPriQueue(&pq);
@@ -242,8 +238,8 @@ void resume(struct Process *process)
     printf("At time %d process %d resumed arr %d total %d remain %d wait %d\n",
            getClk(), process->id, process->arrival_time, process->running_time, process->remaining_time, process->wait_time);
 }
-//sjf
-void SJF(int N, int ProcessQueue, struct PriQueue *pq) {
+//HPF
+void HPF(int N, int ProcessQueue, struct PriQueue *pq) {
     union Semun semun;
     // First semaphore (original)
     key_t semcsync = ftok("process_generator", 110);

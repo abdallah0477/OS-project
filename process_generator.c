@@ -36,34 +36,29 @@ int main(int argc, char *argv[])
         perror("shmat failed");
         exit(1);
     }
+    int choice;
 
     signal(SIGINT, clearResources);
     // TODO Initialization
     // 1. Read the input files.
+    printf("Choose a scheduling algorithm\n");
+    printf("1. HPF (Highest Priority First)\n");
+    printf("2. STRN (Shortest time remaining next)\n");
+    printf("3. RR (Round Robin)\n");
+    scanf("%d", &choice);
 
-    if (argc == 4) {
-        if (strcmp(argv[3], "1") == 0) {
-            printf("Shortest Job First Scheduling\n");
-        } else if (strcmp(argv[3], "2") == 0) {
-            printf("Highest Priority First Scheduling\n");
-        } else if(strcmp(argv[3], "3") == 0) {
-            printf("Round Robin Scheduling With unspecified Quantum\nUsing Default Quantum\n");
-        } 
-        else if (strcmp(argv[3], "4") == 0) {
-            printf("Multilevel Feedback Queue Scheduling With With unspecified Quantum\nUsing Default Quantum\n");
-        } 
-    } 
-    else if (argc == 6) {
-        if (strcmp(argv[3], "3") == 0) {
-            printf("Round Robin Scheduling With Quantum = %s\n", argv[5]);
-        } 
-        else if (strcmp(argv[3], "4") == 0) {
-            printf("Multilevel Feedback Queue Scheduling With Quantum = %s\n", argv[5]);
-        } 
-        else {
-            printf("Invalid scheduling algorithm choice.\n");
-            exit(1);
-        }
+    if (choice == 1){
+        printf("You have selected HPF\n");
+    }
+    else if (choice == 2){
+        printf("You have selected STRN\n");
+    }
+    else if (choice == 3){
+        printf("You have selected RR\n");
+    }
+    else {
+        printf("Invalid choice\n");
+        exit(1);
     }
 
 
@@ -78,20 +73,19 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    int Scheduling_Algorithm = atoi(argv[3]);
     int Quantum = 1;
-    if(Scheduling_Algorithm == 3 || Scheduling_Algorithm ==4){
-        Quantum = atoi(argv[5]);
-    }
+    // if(Scheduling_Algorithm == 3 || Scheduling_Algorithm ==4){
+    //     Quantum = atoi(argv[5]);
+    // }
    int *info = malloc(sizeof(int) * ARRAY_SIZE);
     info[0] =N;
-    info[1] = Scheduling_Algorithm;
+    info[1] = choice;
     info[2]= Quantum;
     for (int i = 0; i < ARRAY_SIZE; i++) {
         shmaddrinfo[i] = info[i];
     }
 
-    printf("Process generator Processes: %d Scheduling algorithm number: %d quantum: %d\n",N,Scheduling_Algorithm,Quantum);
+    printf("Process generator Processes: %d Scheduling algorithm number: %d quantum: %d\n",N,choice,Quantum);
 
     // 3. Initiate and create the scheduler and clock processes.
     clkpid = fork(); // 3amalt fork le clk proceess
