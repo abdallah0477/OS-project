@@ -92,11 +92,11 @@ int main(int argc, char *argv[])
         HPF(N, ProcessQueue, &pq);
     }
     
-    // if (Scheduling_Algorithm == 2)
-    // {
-    //     printf("Starting hpf\n");
-    //     hpf(N, ProcessQueue, &pq);
-    // }
+    if (Scheduling_Algorithm == 2)
+    {
+        printf("Starting hpf\n");
+        STRN(N, ProcessQueue, &pq);
+    }
     if (Scheduling_Algorithm == 3)
     {
         printf("Starting RR\n");
@@ -329,7 +329,7 @@ void HPF(int N, int ProcessQueue, struct PriQueue *pq) {
                 if (Check != NULL) {
                     head = dequeueWaitQueue(Queue);
                     PrintProcess(head);
-                    enqueue(pq, head, 0);
+                    enqueue(pq, head, 1);
                 }
             }
 
@@ -366,7 +366,7 @@ void HPF(int N, int ProcessQueue, struct PriQueue *pq) {
                 process_count++;
             } 
             else {
-                enqueue(pq, processmsg.process, 0);
+                enqueue(pq, processmsg.process, 1);
                 printPriQueue(pq);
                 printf("Scheduler Received Process with pid %d\n", processmsg.process.id);
                 process_count++;
@@ -391,8 +391,8 @@ if (semctl(semsyncid2, 0, IPC_RMID) == -1) {
 } 
     
 }
-//hpf
-void hpf(int N, int ProcessQueue, struct PriQueue *pq) 
+//STRN
+void STRN(int N, int ProcessQueue, struct PriQueue *pq) 
 {
         union Semun semun;
     // First semaphore (original)
@@ -531,7 +531,7 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
                 printf("Added process with id=%d to wait queue\n",processmsg.process.id);
                 printWaitQueue(Queue);
             } else {
-                enqueue(pq, processmsg.process, 1); // Add to priority queue
+                enqueue(pq, processmsg.process, 0); // Add to priority queue
             }
              process_count++;
         }
@@ -545,7 +545,7 @@ void hpf(int N, int ProcessQueue, struct PriQueue *pq)
                 printf("Preempting process %d for process %d\n", curr.id, temp.id);
                 curr.state = 3; // Paused
                 Pause(&curr);
-                enqueue(pq, curr, 1); // Re-add the paused process to the queue
+                enqueue(pq, curr, 0); // Re-add the paused process to the queue
                 curr = dequeue(pq); // Switch to the higher-priority process
             }
         }
@@ -562,261 +562,7 @@ if (semctl(semsyncid2, 0, IPC_RMID) == -1) {
     exit(1);
 } 
 }
-//multilevel feedback queue  
-void multifeedback(int ProcessQueueid, int n, int q)
-{
-        union Semun semun;
-    // First semaphore (original)
-    key_t semcsync = ftok("process_generator", 110);
-    if (semcsync == -1) {
-        perror("ftok failed");
-        exit(1);
-    }
 
-    // Create or access first semaphore
-    int semsyncid = semget(semcsync, 1, IPC_CREAT | 0666);
-    if (semsyncid == -1) {
-        perror("semget failed");
-        exit(1);
-    }
-
-    // Initialize the first semaphore to 0
-    semun.val = 0;
-    if (semctl(semsyncid, 0, SETVAL, semun) == -1) {
-        perror("semctl failed during initialization");
-        exit(1);
-    }
-
-    // Second semaphore (new)
-    key_t semcsync2 = ftok("process_generator", 111);  // Different project ID
-    if (semcsync2 == -1) {
-        perror("ftok failed for second semaphore");
-        exit(1);
-    }
-
-    // Create or access second semaphore
-    int semsyncid2 = semget(semcsync2, 1, IPC_CREAT | 0666);
-    if (semsyncid2 == -1) {
-        perror("semget failed for second semaphore");
-        exit(1);
-    }
-    
-    // Initialize the second semaphore to 0
-    semun.val = 0;
-    if (semctl(semsyncid2, 0, SETVAL, semun) == -1) {
-        perror("semctl failed during initialization of second semaphore");
-        exit(1);
-    }
-    struct circularqueue mlfq[11];
-    for (int i = 0; i < 11; i++)
-    { // Initialize all queues
-        initialq(&mlfq[i]);
-    }
-
-    int clock_time = 0;
-    struct msgbuff processmsg;
-    struct Process current_process = {.id = -1};
-    int current_level = -1;
-    int process_count = 0;
-    int higher_process = 0; // Flag to show if a higher priority process entered during run
-    int higher_level = -1;
-    Node*root = initBuddySystem();
-    struct WaitQueue* Queue = malloc(sizeof(struct WaitQueue));
-    Queue->size = 0; 
-    
-
-    
-
-    printf("MLFQ Scheduler started with fixed quantum %d.\n", q);
-
-
-    while (process_count < n )
-    {
-        if(process_count==n){
-            break;
-        }
-
-        while (msgrcv(ProcessQueueid, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1)
-        {
-
-            printf("process with id %d priority %d arrived\n", processmsg.process.id,processmsg.process.priority);
-            Node *temp=allocateMemory(root,processmsg.process.MEMSIZE);
-            if(temp==NULL){
-                enqueueWaitQueue(Queue,processmsg.process);
-                printf("process with id %d entered waiting queue\n",processmsg.process.id);
-            }
-            else{
-                fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-               getClk(), processmsg.process.MEMSIZE, processmsg.process.id,temp->start_address, temp->end_address);
-               
-               processmsg.process.Block=temp;
-               processmsg.process.start_a=temp->start_address;
-               processmsg.process.end_a=temp->end_address;  
-               enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);           
-
-               processmsg.process.state=0;
-               printf("process with id %d entered ready queue\n",processmsg.process.id);
-            }
-
-        }
-
-        clock_time = getClk();
-
-       
-        if (current_process.id == -1)
-        {
-            for (int i = 0; i < 11; i++)
-            {
-                if (!isEmptyCircular(&mlfq[i])) //badawar ala elprocess elhasha8alha
-                {
-                    current_process = dequeuecircular(&mlfq[i]);
-                    current_level = i;
-                    break;
-                }
-            }
-        }
-
-        if (current_process.id != -1)
-        {
-
-
-              if (current_process.run_before == 1)
-                {
-                    resume(&current_process);
-                }
-                else
-                {
-                    current_process.remaining_time=current_process.running_time;
-                    current_process.state=1;
-                    start(&current_process);
-                   
-                }
-              int exec_time = 0;
-            if (current_process.remaining_time < q)
-            {
-                exec_time = current_process.remaining_time;
-            }
-            else
-            {
-                exec_time = q;
-            }
-
-            int end_time = clock_time + exec_time;
-
-            while (getClk() < end_time)
-            { // Time the process will run
-                while (msgrcv(ProcessQueueid, &processmsg, sizeof(processmsg.process), 1, IPC_NOWAIT) != -1)
-                {
-                    
-                    printf("process with id %d priority %d arrived\n", processmsg.process.id, processmsg.process.priority);
-                    Node *temp = allocateMemory(root, processmsg.process.MEMSIZE);
-                    if (temp == NULL)
-                    {
-                        enqueueWaitQueue(Queue, processmsg.process);
-                        printf("process with id %d entered waiting queue\n", processmsg.process.id);
-                    }
-                    else
-                    {
-                        fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-                        getClk(),  processmsg.process.MEMSIZE, processmsg.process.id, temp->start_address, temp->end_address);
-
-                        processmsg.process.Block = temp;
-                        processmsg.process.start_a=temp->start_address;
-                        processmsg.process.end_a=temp->end_address; 
-                        enqueuecircular(&mlfq[processmsg.process.priority], processmsg.process);
-                        printf("start adress %d\n",processmsg.process.start_a);
-                        printf("end adress %d\n",processmsg.process.end_a); 
-                        processmsg.process.state = 0;
-                        printf("process with id %d entered ready queue\n", processmsg.process.id);
-
-                        if (processmsg.process.priority < current_level)
-                        {
-                            higher_process = 1;
-                            higher_level = processmsg.process.priority;
-                        }
-                    }
-                }
-            }
-                current_process.remaining_time -= exec_time;
-                if (current_process.remaining_time > 0)
-                {
-                    Pause(&current_process);
-                    if (current_level < 10)
-                    {
-                        enqueuecircular(&mlfq[current_level + 1], current_process);
-                    }
-                    else{
-                    enqueuecircular(&mlfq[current_process.priority], current_process);
-                }
-                current_process.id=-1;
-                }
-            else
-            {
-                
-                Node *temp=current_process.Block;
-                printf("current time %d \n",getClk());
-                printf("size %d\n",current_process.MEMSIZE);
-                printf("id %d\n",current_process.id);
-                printf("start adress %d\n",current_process.start_a);
-                printf("end adress %d\n",current_process.end_a);
-                finish(&current_process);
-
-                fprintf(out_memory, "At time %d freed %d bytes from process %d from %d to %d\n",getClk(), current_process.MEMSIZE,current_process.id ,current_process.Block->start_address, current_process.Block->end_address);
-                freeMemory(current_process.Block);
-                process_count++;
-                current_process.state=2;
-                current_process.id=-1;
-                if(!isEmptyWaitQueue(Queue)){
-                struct Process head = peekWaitQueue(Queue);
-                Node* Check = allocateMemory(root,head.MEMSIZE);
-                if (Check != NULL)
-                {
-                    head = dequeueWaitQueue(Queue);
-                    head.Block=Check;
-                    enqueuecircular(&mlfq[head.priority],head);
-                    fprintf(out_memory, "At time %d allocated %d bytes for process %d from %d to %d\n",
-                     getClk(), head.Block->size,head.id, head.Block->start_address, head.Block->end_address);
-                }
-                }
-            }
-
-           if(process_count==n){
-            break;
-            }
-
-            if (higher_process == 0 || higher_level == -1)
-            {
-                while(isEmptyCircular(&mlfq[current_level])){
-                    current_level++;
-                    if(current_level==11){
-                        current_level=0;
-                    }
-                }
-                printf("CURRENT LEVEL IS %d\n",current_level);
-                current_process = dequeuecircular(&mlfq[current_level]);
-            }
-            else
-            { // Check if a higher priority process arrived
-                current_process = dequeuecircular(&mlfq[higher_level]);
-                current_level = higher_level;
-                higher_level = -1;
-                higher_process = 0;
-            }
-            
-    }
-    }
-    
-if (semctl(semsyncid, 0, IPC_RMID) == -1) {
-    perror("Failed to destroy the first semaphore");
-    exit(1);
-    } 
-
-
-if (semctl(semsyncid2, 0, IPC_RMID) == -1) {
-    perror("Failed to destroy the second semaphore");
-    exit(1);
-} 
-}
 //round robin
 void RoundRobin(int ProcessQueue,int N,int Quantum){
 
