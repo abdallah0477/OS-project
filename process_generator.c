@@ -2,7 +2,27 @@
 
 void clearResources(int);
 
-
+int countProcesses(FILE *file) {
+    int count = 0;
+    char buffer[256];
+    
+    // Start from beginning of file
+    rewind(file);
+    
+    while (fgets(buffer, sizeof(buffer), file)) {
+        // Skip lines that start with # or are empty
+        if (buffer[0] == '#' || buffer[0] == '\n') {
+            continue;
+        }
+        
+        // Check if line has at least one digit (simple check)
+        if (strpbrk(buffer, "0123456789") != NULL) {
+            count++;
+        }
+    }
+    
+    return count;
+}
 
 pid_t clkpid,schedulerpid;
 key_t semclkid,semsendid,semrecid,ProcessQueueid,keyidshmid,keyidshmid2;
@@ -16,9 +36,11 @@ struct Process *processes;
 int* shmaddrinfo;
 
 int main(int argc, char *argv[])
-{   
+{       
+    signal(SIGINT, clearResources);
+
+    // clearResources(SIGINT);
     union Semun semun;
-    
     //Message Queue for Processes
     ProcessQueueid = ftok("process_generator",68);
     ProcessQueue = msgget(ProcessQueueid, 0666 | IPC_CREAT);
@@ -38,7 +60,6 @@ int main(int argc, char *argv[])
     }
     int choice;
 
-    signal(SIGINT, clearResources);
     // TODO Initialization
     // 1. Read the input files.
     printf("Choose a scheduling algorithm\n");
@@ -46,6 +67,8 @@ int main(int argc, char *argv[])
     printf("2. STRN (Shortest time remaining next)\n");
     printf("3. RR (Round Robin)\n");
     scanf("%d", &choice);
+
+    int Quantum;
 
     if (choice == 1){
         printf("You have selected HPF\n");
@@ -55,6 +78,8 @@ int main(int argc, char *argv[])
     }
     else if (choice == 3){
         printf("You have selected RR\n");
+        printf("Enter the quantum time: ");
+        scanf("%d", &Quantum);
     }
     else {
         printf("Invalid choice\n");
@@ -66,14 +91,18 @@ int main(int argc, char *argv[])
     pfile = fopen("process.txt","r");
 
     // 2. Read the chosen scheduling algorithm and its parameters, if there are any from the argument list.
-    int N;
-    if (fscanf(pfile, "%d", &N) != 1) {
-        perror("Error reading file");
+    int N = countProcesses(pfile);
+    if (N == 0) {
+        printf("No processes found in the file\n");
         fclose(pfile);
-        return 1;
-    }
+        exit(1);
+    }    // if (fscanf(pfile, "%d", &N) != 1) {
+    //     perror("Error reading file");
+    //     fclose(pfile);
+    //     return 1;
+    // }
 
-    int Quantum = 1;
+    // int Quantum = 1;
     // if(Scheduling_Algorithm == 3 || Scheduling_Algorithm ==4){
     //     Quantum = atoi(argv[5]);
     // }
@@ -132,6 +161,7 @@ int main(int argc, char *argv[])
     processes = malloc(N * sizeof(struct Process));
     int process_count = 0;
     char buffer[256];
+    rewind(pfile);
     while (fgets(buffer, sizeof(buffer), pfile)) {
         // Skip lines that start with #
         if (buffer[0] == '#') {
@@ -206,7 +236,8 @@ int main(int argc, char *argv[])
 
 void clearResources(int signum)
 {
-    shmdt(shmaddr);
+    // system("pkill -f clk.out");
+    // shmdt(shmaddr);
     kill(clkpid,SIGINT);
     kill(clkpid, SIGTERM);
     kill(schedulerpid,SIGTERM);

@@ -24,15 +24,16 @@ float CPU_UT = 0;
 double avg_WTA = 0;
 float avg_wait = 0;
 int still_sending = 1;
+float wta[MAX_SIZE];
+int wta_index = 0;
 
 FILE *out_log;
 FILE *out_perf;
 FILE *out_memory;
 
-void multifeedback(int MessageQueue, int n, int q);
 void HPF(int N, int MessageQueue, struct PriQueue *pq);
+void STRN(int N, int MessageQueue, struct PriQueue *pq);
 void RoundRobin(int MessageQueue, int N, int Quantum);
-void hpf(int MessageQueue, int N, struct PriQueue *pq);
 struct Process *processes;
 pid_t ProcessID;
 int main(int argc, char *argv[])
@@ -94,7 +95,7 @@ int main(int argc, char *argv[])
     
     if (Scheduling_Algorithm == 2)
     {
-        printf("Starting hpf\n");
+        printf("Starting STRN\n");
         STRN(N, ProcessQueue, &pq);
     }
     if (Scheduling_Algorithm == 3)
@@ -214,6 +215,8 @@ void finish(struct Process *process)
     total_wait += process->wait_time;
     total_wta += WTA;
     total_run += process->running_time;
+    wta[wta_index] = WTA;
+    wta_index++;
     // fill in memory deallocation
     kill(process->p_pid, SIGKILL);
 }
@@ -769,9 +772,15 @@ void printPerf(int N){
     float CPU_UT = ((float)total_run / (float)(getClk())) * 100.0;
     avg_WTA = total_wta / (float)N;
     double roundedavg_WTA = ceil(avg_WTA* 100) / 100.0;
-    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2ff\nAVG Waiting Time= %.1f\n",
-            CPU_UT, roundedavg_WTA, avg_wait);
-    printf("CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.1f\n",
-           CPU_UT, avg_WTA, avg_wait);
+    float std_WTA = 0.0;
+    for (int i = 0; i < N; i++)
+    {
+        std_WTA += pow((wta[i] - avg_WTA), 2);
+    }
+    std_WTA = sqrt(std_WTA / (float)N);
+    fprintf(out_perf, "CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.1f\nSTD WTA= %.2f\n",
+            CPU_UT, roundedavg_WTA, avg_wait, std_WTA);
+    printf("CPU Utilization = %.0f%%\nAVG WTA= %.2f\nAVG Waiting Time= %.1f\nSTD WTA= %.2f\n",
+           CPU_UT, avg_WTA, avg_wait, std_WTA);
     fclose(out_perf);
     }
