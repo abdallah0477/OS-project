@@ -543,7 +543,7 @@ void STRN(int N, int ProcessQueue, struct PriQueue *pq)
         if (!isEmpty(pq) && curr.id!=-1)
         {
             struct Process temp = peek(pq); // begining of priority queue
-            if (temp.priority < curr.priority) // Higher priority 
+            if (!isEmpty(pq) && peek(pq).remaining_time < curr.remaining_time) 
             {
                 printf("Preempting process %d for process %d\n", curr.id, temp.id);
                 curr.state = 3; // Paused
@@ -784,3 +784,4 @@ void printPerf(int N){
            CPU_UT, avg_WTA, avg_wait, std_WTA);
     fclose(out_perf);
     }
+
