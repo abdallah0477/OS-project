@@ -1,0 +1,157 @@
+Work Load:
+Abdullah: process generator, HPF
+Ibrahim: SRTN
+Yusuf: RR
+
+input:
+#id	arrival	runtime	priority memsize
+1	0   	7   4   120
+2	2   	4   1	100
+3	4	9   3	150
+4	6	5   2   130
+5	8	6   5   110
+
+HPF:
+At time 0 process 1 started, arrival time 0 total 7 remain 7 wait 0
+At time 8 process 1 finished, arrived 0 total 7 remain 0 wait 0 TA 8 WTA 1.14
+At time 8 process 2 started, arrival time 2 total 4 remain 4 wait 6
+At time 12 process 2 finished, arrived 2 total 4 remain 0 wait 6 TA 10 WTA 2.50
+At time 12 process 4 started, arrival time 6 total 5 remain 5 wait 6
+At time 17 process 4 finished, arrived 6 total 5 remain 0 wait 6 TA 11 WTA 2.20
+At time 17 process 3 started, arrival time 4 total 9 remain 9 wait 13
+At time 26 process 3 finished, arrived 4 total 9 remain 0 wait 13 TA 22 WTA 2.44
+At time 26 process 5 started, arrival time 8 total 6 remain 6 wait 18
+At time 32 process 5 finished, arrived 8 total 6 remain 0 wait 18 TA 24 WTA 4.00
+
+CPU Utilization = 97%
+AVG WTA= 2.46
+AVG Waiting Time= 8.6
+STD WTA= 0.91
+
+At time 0 allocated 128 bytes for process 1 from 0 to 127
+At time 8 freed 128 bytes from process 1 from 0 to 127
+At time 8 allocated 128 bytes for process 2 from 0 to 127
+At time 12 freed 128 bytes from process 2 from 0 to 127
+At time 12 allocated 256 bytes for process 4 from 0 to 255
+At time 17 freed 256 bytes from process 4 from 0 to 255
+At time 17 allocated 256 bytes for process 3 from 0 to 255
+At time 26 freed 256 bytes from process 3 from 0 to 255
+At time 26 allocated 128 bytes for process 5 from 0 to 127
+At time 32 freed 128 bytes from process 5 from 0 to 127
+
+
+SRTN:
+At time 0 process 1 started, arrival time 0 total 7 remain 7 wait 0
+At time 2 process 1 stopped arr 0 total 7 remain 5 wait 0
+At time 2 process 2 started, arrival time 2 total 4 remain 4 wait 0
+At time 6 process 2 finished, arrived 2 total 4 remain 0 wait 0 TA 4 WTA 1.00
+At time 6 process 1 resumed arr 0 total 7 remain 5 wait 4
+At time 11 process 1 finished, arrived 0 total 7 remain 0 wait 4 TA 11 WTA 1.57
+At time 11 process 4 started, arrival time 6 total 5 remain 5 wait 5
+At time 16 process 4 finished, arrived 6 total 5 remain 0 wait 5 TA 10 WTA 2.00
+At time 16 process 5 started, arrival time 8 total 6 remain 6 wait 8
+At time 23 process 5 finished, arrived 8 total 6 remain 0 wait 8 TA 15 WTA 2.50
+At time 23 process 3 started, arrival time 4 total 9 remain 9 wait 19
+At time 32 process 3 finished, arrived 4 total 9 remain 0 wait 19 TA 28 WTA 3.11
+
+CPU Utilization = 97%
+AVG WTA= 2.04
+AVG Waiting Time= 7.2
+STD WTA= 0.73
+
+At time 0 allocated 128 bytes for process 1 from 0 to 127
+At time 2 allocated 128 bytes for process 2 from 128 to 255
+At time 6 freed 128 bytes from process 2 from 128 to 255
+At time 11 freed 128 bytes from process 1 from 0 to 127
+At time 11 allocated 256 bytes for process 4 from 0 to 255
+At time 16 freed 256 bytes from process 4 from 0 to 255
+At time 16 allocated 128 bytes for process 5 from 0 to 127
+At time 23 freed 128 bytes from process 5 from 0 to 127
+At time 23 allocated 256 bytes for process 3 from 0 to 255
+At time 32 freed 256 bytes from process 3 from 0 to 255
+
+
+RR (Quantum = 1):
+At time 0 process 1 started, arrival time 0 total 7 remain 7 wait 0
+At time 1 process 1 stopped arr 0 total 7 remain 6 wait 0
+At time 1 process 1 resumed arr 0 total 7 remain 6 wait 0
+At time 2 process 1 stopped arr 0 total 7 remain 5 wait 0
+At time 2 process 2 started, arrival time 2 total 4 remain 4 wait 0
+At time 3 process 2 stopped arr 2 total 4 remain 3 wait 0
+At time 3 process 1 resumed arr 0 total 7 remain 5 wait 1
+At time 4 process 1 stopped arr 0 total 7 remain 4 wait 1
+At time 4 process 2 resumed arr 2 total 4 remain 3 wait 1
+At time 5 process 2 stopped arr 2 total 4 remain 2 wait 1
+At time 5 process 3 started, arrival time 4 total 9 remain 9 wait 1
+At time 6 process 3 stopped arr 4 total 9 remain 8 wait 1
+At time 6 process 1 resumed arr 0 total 7 remain 4 wait 3
+At time 7 process 1 stopped arr 0 total 7 remain 3 wait 3
+At time 7 process 2 resumed arr 2 total 4 remain 2 wait 3
+At time 8 process 2 stopped arr 2 total 4 remain 1 wait 3
+At time 8 process 4 started, arrival time 6 total 5 remain 5 wait 2
+At time 9 process 4 stopped arr 6 total 5 remain 4 wait 2
+At time 9 process 3 resumed arr 4 total 9 remain 8 wait 4
+At time 10 process 3 stopped arr 4 total 9 remain 7 wait 4
+At time 10 process 1 resumed arr 0 total 7 remain 3 wait 6
+At time 11 process 1 stopped arr 0 total 7 remain 2 wait 6
+At time 11 process 5 started, arrival time 8 total 6 remain 6 wait 3
+At time 12 process 5 stopped arr 8 total 6 remain 5 wait 3
+At time 12 process 2 resumed arr 2 total 4 remain 1 wait 7
+At time 13 process 2 finished, arrived 2 total 4 remain 0 wait 7 TA 11 WTA 2.75
+At time 13 process 4 resumed arr 6 total 5 remain 4 wait 6
+At time 14 process 4 stopped arr 6 total 5 remain 3 wait 6
+At time 14 process 3 resumed arr 4 total 9 remain 7 wait 8
+At time 15 process 3 stopped arr 4 total 9 remain 6 wait 8
+At time 15 process 1 resumed arr 0 total 7 remain 2 wait 10
+At time 16 process 1 stopped arr 0 total 7 remain 1 wait 10
+At time 16 process 5 resumed arr 8 total 6 remain 5 wait 7
+At time 17 process 5 stopped arr 8 total 6 remain 4 wait 7
+At time 17 process 4 resumed arr 6 total 5 remain 3 wait 9
+At time 18 process 4 stopped arr 6 total 5 remain 2 wait 9
+At time 18 process 3 resumed arr 4 total 9 remain 6 wait 11
+At time 19 process 3 stopped arr 4 total 9 remain 5 wait 11
+At time 19 process 1 resumed arr 0 total 7 remain 1 wait 13
+At time 20 process 1 finished, arrived 0 total 7 remain 0 wait 13 TA 20 WTA 2.86
+At time 20 process 5 resumed arr 8 total 6 remain 4 wait 10
+At time 21 process 5 stopped arr 8 total 6 remain 3 wait 10
+At time 21 process 4 resumed arr 6 total 5 remain 2 wait 12
+At time 22 process 4 stopped arr 6 total 5 remain 1 wait 12
+At time 22 process 3 resumed arr 4 total 9 remain 5 wait 14
+At time 23 process 3 stopped arr 4 total 9 remain 4 wait 14
+At time 24 process 5 resumed arr 8 total 6 remain 3 wait 13
+At time 25 process 5 stopped arr 8 total 6 remain 2 wait 13
+At time 25 process 4 resumed arr 6 total 5 remain 1 wait 15
+At time 26 process 4 finished, arrived 6 total 5 remain 0 wait 15 TA 20 WTA 4.00
+At time 26 process 3 resumed arr 4 total 9 remain 4 wait 17
+At time 27 process 3 stopped arr 4 total 9 remain 3 wait 17
+At time 27 process 5 resumed arr 8 total 6 remain 2 wait 15
+At time 28 process 5 stopped arr 8 total 6 remain 1 wait 15
+At time 28 process 3 resumed arr 4 total 9 remain 3 wait 18
+At time 29 process 3 stopped arr 4 total 9 remain 2 wait 18
+At time 29 process 5 resumed arr 8 total 6 remain 1 wait 16
+At time 30 process 5 finished, arrived 8 total 6 remain 0 wait 16 TA 22 WTA 3.67
+At time 30 process 3 resumed arr 4 total 9 remain 2 wait 19
+At time 31 process 3 stopped arr 4 total 9 remain 1 wait 19
+At time 31 process 3 resumed arr 4 total 9 remain 1 wait 19
+At time 32 process 3 finished, arrived 4 total 9 remain 0 wait 19 TA 28 WTA 3.11
+
+CPU Utilization = 97%
+AVG WTA= 3.28
+AVG Waiting Time= 14.0
+STD WTA= 0.48
+
+At time 0 allocated 128 bytes for process 1 from 0 to 127
+At time 2 allocated 128 bytes for process 2 from 128 to 255
+At time 4 allocated 256 bytes for process 3 from 256 to 511
+At time 6 allocated 256 bytes for process 4 from 512 to 767
+At time 8 allocated 128 bytes for process 5 from 768 to 895
+At time 13 freed 128 bytes from process 2 from 128 to 255
+At time 20 freed 128 bytes from process 1 from 0 to 127
+At time 26 freed 256 bytes from process 4 from 512 to 767
+At time 30 freed 128 bytes from process 5 from 768 to 895
+
+
+buddy memory system:
+- Implemented using binary tree
+- Used allocateMemory to find nearest power of 2 fragement space in memory
+- Used freeMemory to deallocate the memory space of terminated processes and recursively calls on parent to potentially merge upward
