@@ -528,6 +528,8 @@ void STRN(int N, int ProcessQueue, struct PriQueue *pq)
             }
 
             printf("Scheduler received process with id %d\n", processmsg.process.id);
+            // default remaining time to running time
+            processmsg.process.remaining_time = processmsg.process.running_time;
             Node* Block1 = findFreeBlock(root, processmsg.process.MEMSIZE);
             if (Block1 == NULL) {
                 enqueueWaitQueue(Queue, processmsg.process); // Add to wait queue if memory is unavailable

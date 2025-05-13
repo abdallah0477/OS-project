@@ -197,7 +197,7 @@ void enqueue(struct PriQueue* pq, struct Process P, int use_priority) {
         }
     } else {
         // Sort by running time (SJF) priority=0
-        for (i = pq->size - 1; i >= 0 && pq->priqueue[i].running_time > P.running_time; i--) {
+        for (i = pq->size - 1; i >= 0 && pq->priqueue[i].remaining_time > P.remaining_time; i--) {
             pq->priqueue[i + 1] = pq->priqueue[i];
         }
     }
